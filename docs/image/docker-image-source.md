@@ -2,7 +2,11 @@
 
 记录日期：2026-06-17
 
-本文只记录当前线上使用的 DST Docker 镜像来源、构建文件、协议、镜像内部配置和后续复现建议。当前阶段不复制上游镜像源码到本仓库。
+> 注：本文是**历史分析存档**，记录仓库迁移到 `dst-waystone` 单镜像方案之前，线上使用的 `jamesits/dst-server` 上游镜像的来源、构建逻辑和容器内部约定。
+> 仓库已不再保留 `deploy/` 与宿主机直装链路，文中提到的相关路径（`deploy/server/...`、`/opt/dst-server/...`）反映当时的部署形态，仅供参考。
+> 当前镜像方案见 `docs/image/integrated-image-design.md`，候选评估见 `docs/image/docker-image-candidates.md`。
+
+本文只记录历史线上使用的 DST Docker 镜像来源、构建文件、协议、镜像内部配置和后续复现建议。
 
 ## 当前结论
 
@@ -220,22 +224,13 @@ blocklist.txt
 whitelist.txt
 ```
 
-默认 `cluster.ini` 使用 `game_mode = endless`、`max_players = 64`、`pvp = true`，并提示用户修改服务器名和描述。当前仓库 `deploy/server/Cluster_1/` 中保存的是我们线上实际配置，不是镜像默认配置。
+默认 `cluster.ini` 使用 `game_mode = endless`、`max_players = 64`、`pvp = true`，并提示用户修改服务器名和描述。
 
-## 与当前仓库的关系
+## 与当前仓库的关系（历史）
 
-当前仓库已经保存了线上宿主机层配置：
+仓库迁移到 `dst-waystone` 单镜像方案前，曾在 `deploy/` 下保存线上宿主机层配置（DST compose、`Cluster_1` 集群配置、`dst-admin` systemd 与 Nginx 片段等）。这些文件已随宿主机直装链路一起移除，相关运行态由部署环境维护，不再纳入仓库。
 
-- `deploy/server/docker-compose.yml`
-- `deploy/server/Cluster_1/cluster.ini`
-- `deploy/server/Cluster_1/Master/server.ini`、`deploy/server/Cluster_1/Caves/server.ini`
-- `deploy/server/Cluster_1/Master/worldgenoverride.lua`、`deploy/server/Cluster_1/Caves/worldgenoverride.lua`
-- `deploy/server/Cluster_1/Master/modoverrides.lua`、`deploy/server/Cluster_1/Caves/modoverrides.lua`
-- `deploy/server/Cluster_1/mods/dedicated_server_mods_setup.lua`
-- `deploy/systemd/dst-admin.service`
-- `deploy/nginx/dst-admin-subpath.conf`
-
-但当前仓库还没有保存上游镜像源码，也没有 fork 或自建镜像。
+本文保留作为历史参考，记录当时基于 `jamesits/dst-server` 的部署形态与协议边界。
 
 ## 开源分发建议
 
@@ -252,10 +247,10 @@ image: jamesits/dst-server@sha256:fa61065f8d2d770bc5d45f1a160b87b1deada3fd5903d9
 4. 如果后续需要修改镜像 entrypoint、supervisor 或默认配置，再建立 `third_party/docker-dst-server/` 或独立 fork，并完整保留 GPL-2.0 LICENSE、版权声明和源码分发说明。
 5. 不把 Klei token、服务器密码、玩家 ID、存档、Steam 下载产物、Workshop UGC 内容和 DST 游戏二进制纳入开源仓库。
 
-## 待决策
+## 待决策（历史）
 
-- 是否将 `deploy/server/docker-compose.yml` 从 `latest` 改为 digest pinning。
+- 当时是否将线上 compose 从 `latest` 改为 digest pinning（已随宿主机方案废弃）。
 - 是否只引用上游，还是 fork 上游镜像。
 - 如果 fork，上游 GPL-2.0 将影响镜像相关派生代码的分发方式，需要单独设计 `NOTICE` / `LICENSES` / `third_party` 结构。
 
-可替代镜像候选和推荐路径见 `docs/image/docker-image-candidates.md`。
+仓库后续选择了从零编写 `dst-waystone` 构建上下文，不再使用 `jamesits/dst-server`。可替代镜像候选与现行选择背景见 `docs/image/docker-image-candidates.md`。

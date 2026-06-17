@@ -2,19 +2,19 @@
 
 ## 目标
 
-本仓库用于保存《饥荒联机版》自建服务器的可复现部署资产、`dst-admin` 管理端、`dst-waystone` 生产构建上下文，以及后续饥荒 MOD 开发资料。
+本仓库维护《饥荒联机版》自建服务器的 `dst-waystone` 生产构建上下文、`dst-admin` 管理端，以及后续饥荒 MOD 开发资料。运行态（token、密码、存档、镜像、Workshop 下载）由部署环境负责，不进入 Git。
 
 ## 当前边界
 
-- 线上运行资产在 `deploy/`，其中敏感值必须保持占位或示例。
-- 管理端代码在 `cmd/mod-manager/`、`web/`、`mods/`。
-- `dst-waystone` 构建上下文在 `docker/`，当前只维护 Dockerfile、entrypoint、supervisor 和说明文档；生产环境负责实际构建、密钥注入、数据挂载和服务编排。
-- 饥荒 MOD 开发资料先沉淀在 `.code/knowledge/dst-mod-development/`，进入实际代码开发前必须先补齐机制理解、设计、验证和来源边界。
+- 镜像构建上下文在 `docker/`：`Dockerfile` 用于构建 `dst-waystone:local`，`compose.yml` + `.env.example` 用于启动容器，`entrypoint.sh` 与 `supervisord.conf` 是运行时编排。
+- 管理端代码在 `cmd/mod-manager/`、`web/`、`mods/`。注：`main.go` 仍保留旧版宿主机部署的硬编码路径（`/opt/dst-server/...`），迁移到 `dst-waystone` 容器内 `/data` 与 `/opt/dst/admin` 是后续独立任务。
+- 配方示例在 `examples/`，只放与本仓库自有内容相关的最小样板。
+- 饥荒 MOD 开发资料沉淀在 `.code/knowledge/dst-mod-development/`，进入实际代码开发前必须先补齐机制理解、设计、验证和来源边界。
 
 ## 工作纪律
 
 - 所有回答和项目说明优先使用中文；面向开源分发的用户文档后续补英文版。
-- 修改前先读现有文件，不凭记忆改部署、镜像或 MOD 配置。
+- 修改前先读现有文件，不凭记忆改镜像构建上下文或 MOD 配置。
 - 只做用户要求的范围，不顺手重构、不移动目录、不清理无关文件。
 - 不提交 Klei token、服务器密码、玩家 ID、Steam 缓存、Workshop 下载内容、存档或真实管理密钥。
 - 不复制 `jamesits/docker-dst-server`、`superjump22/dontstarve-server-docker` 或 Workshop MOD 的受限源码；允许记录来源、行为观察和重写计划。

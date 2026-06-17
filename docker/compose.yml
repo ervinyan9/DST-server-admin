@@ -1,0 +1,23 @@
+name: dst-waystone
+
+services:
+  dst-waystone:
+    image: dst-waystone:local
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: dst-waystone
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8788:8788/tcp"
+      - "10999:10999/udp"
+      - "11000:11000/udp"
+      - "12346:12346/udp"
+      - "12347:12347/udp"
+    volumes:
+      - dst-data:/data
+
+volumes:
+  dst-data:

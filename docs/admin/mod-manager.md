@@ -1,5 +1,9 @@
 # DST MOD Manager
 
+> 注：本文档记录 `cmd/mod-manager` 当前实现，路径仍指向旧版宿主机部署（`/opt/dst-server/...`）。
+> 仓库目标已迁移到 `dst-waystone` 单镜像方案（`/data/...`），但业务代码尚未跟进；
+> 文中的 `/opt/dst-server/...` 应理解为遗留契约，待后续独立任务迁移。
+
 This project includes a small local MOD manager for Don't Starve Together.
 
 It is intentionally simple:

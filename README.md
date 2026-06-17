@@ -1,190 +1,103 @@
-# Don't Starve Together Docker Server
+# Don't Starve Together Self-Hosted Server
 
-这个仓库保存《饥荒联机版》专用服务器的部署脚本、默认配置、远程管理端和操作记录。
+本仓库维护一个自建《饥荒联机版》服务器栈：
 
-设计原则：
+- **`dst-waystone` 镜像构建上下文**：DST dedicated server + `dst-admin` 管理端的多阶段 Dockerfile，运行时由 supervisor 同时管理 Master、Caves 和管理端进程。
+- **`dst-admin` 管理端**：Go 写的 HTTP 管理端，源码在 `cmd/mod-manager/`、`web/`、`mods/`。
+- **饥荒 MOD 开发资料**：在 `.code/knowledge/dst-mod-development/` 沉淀机制理解和来源边界。
 
-- 服务器是 Linux/Ubuntu，脚本直接在服务器上运行。
-- 本地保存脚本、管理端代码、可复现部署配置和文档，方便备份、审阅和之后同步。
-- 除了 Klei server token，其他配置都可以由脚本自动生成。
-- Docker 镜像在服务器端拉取，存档和配置保存在 `/opt/dst-server/data`。
+仓库只保存源、模板和文档；运行态（Klei token、密码、镜像、Workshop 下载、存档）不进 Git。
 
-## 当前整合包
-
-服务器当前可复现部署资产已保存到：
+## 仓库结构
 
 ```text
-deploy/
+docker/
+  Dockerfile                镜像构建定义（cm2network/steamcmd:root + golang:1.22-bookworm）
+  Dockerfile.dockerignore   构建上下文裁剪
+  compose.yml               单服务 Compose 启动脚本
+  .env.example              运行时环境变量模板
+  entrypoint.sh             容器启动初始化逻辑
+  supervisord.conf          dst-admin / dst-master / dst-caves 三进程编排
+  README.md                 镜像构建与运行说明
+
+cmd/mod-manager/            管理端入口（注：仍含旧版宿主机部署的硬编码路径，待迁移）
+web/                        管理端模板与静态资源
+mods/                       管理端 MOD 状态种子和生成配置（运行产物已 git ignore）
+
+examples/
+  worldgenoverride/         世界生成覆盖样板（仓库自有内容，可作为容器内默认配置参考）
+
+docs/
+  admin/                    管理端与 MOD 整合文档
+  image/                    镜像设计、来源、候选评估
+
+.code/                      上下文工程入口（README、project-map、acceptance、knowledge、skills）
 ```
 
-其中包含：
+## 快速运行
 
-- `deploy/server/docker-compose.yml`：当前线上 DST Docker Compose 配置。
-- `deploy/server/Cluster_1/`：当前线上 `cluster.ini`、Master/Caves 分片配置和 MOD Lua 配置，敏感字段已占位。
-- `deploy/systemd/dst-admin.service`：当前线上管理端 systemd 服务。
-- `deploy/systemd/dst-admin.env.example`：管理密钥环境文件示例，真实值不进仓库。
-- `deploy/nginx/dst-admin-subpath.conf`：当前管理端 subpath 反代配置片段。
-- `deploy/admin-snapshot/`：从线上拉取的管理端配置与 MOD 状态快照，敏感字段已占位。
-- `deploy/runtime-state/2026-06-17-webhk.md`：本次从线上采集的服务、镜像、端口和防火墙状态。
+构建本地镜像：
 
-恢复或迁移服务器时，优先阅读 `deploy/README.md`，再按需使用 `scripts/install-dst-server.sh`。
+```bash
+cd docker
+docker build -f Dockerfile -t dst-waystone:local ..
+```
 
-当前使用的 Docker 镜像来源、构建文件、协议和线上镜像内部配置见 `docs/image/docker-image-source.md`。可替代镜像候选和推荐路径见 `docs/image/docker-image-candidates.md`。
+准备运行时环境变量：
 
-## dst-waystone 生产构建上下文
+```bash
+cd docker
+cp .env.example .env
+# 编辑 .env，填入 DST_CLUSTER_TOKEN、DST_ADMIN_KEY 等
+```
 
-本仓库正在推进 `dst-waystone` 服务封装上下文，目标是维护 Dockerfile、默认配置模板和自写启动编排，后续由生产环境负责实际镜像构建、密钥注入、数据挂载和服务编排。
+启动容器：
 
-设计文档：
+```bash
+docker compose up -d
+docker compose logs -f --tail=200
+```
+
+DST 数据持久化到名为 `dst-waystone_dst-data` 的 docker named volume，容器内挂载点是 `/data`。
+
+## 端口
+
+```text
+8788/tcp    管理端 HTTP
+10999/udp   Master shard
+11000/udp   Caves shard
+12346/udp   Master Steam
+12347/udp   Caves Steam
+```
+
+云厂商安全组和服务器防火墙都需要放行上述 UDP。`8788/tcp` 通常通过 Nginx 反代或 SSH 端口转发暴露，不直接面向公网。
+
+## Klei cluster token
+
+未提供 `DST_CLUSTER_TOKEN` 时，`entrypoint.sh` 只启动管理端，不启动 DST 进程。获取方式：
+
+1. 登录 Klei Accounts。
+2. 进入 Don't Starve Together → Game Servers。
+3. 创建一个新的 server/cluster，复制生成的 token。
+
+Token 写入 `.env` 即可；它是服务器归属凭证，不要进入公开仓库或聊天记录。
+
+## 镜像来源与协议
+
+`dst-waystone` 是从零编写的构建上下文，不复制 `jamesits/docker-dst-server` 或 `superjump22/dontstarve-server-docker` 的 Dockerfile、entrypoint、supervisor 配置或脚本。运行时通过 SteamCMD 下载 DST AppID `343050`。详细来源、协议边界和镜像内部配置见：
 
 ```text
 docs/image/integrated-image-design.md
+docs/image/docker-image-source.md
+docs/image/docker-image-candidates.md
 ```
 
-本地构建：
+## 已知遗留
 
-```bash
-docker build -f docker/Dockerfile -t dst-waystone:local .
-```
+- `cmd/mod-manager/main.go` 仍硬编码旧版宿主机部署路径（`/opt/dst-server/...`）和 `jamesits/dst-server:latest` compose 模板。该业务代码迁移到 `dst-waystone` 容器内 `/data` 与 `/opt/dst/admin` 是后续独立任务，本阶段不动。
 
-详细运行方式见 `docker/README.md`。该构建上下文通过 SteamCMD 在运行时下载或更新 DST AppID `343050`，也可以用 `--build-arg DST_DOWNLOAD_AT_BUILD=true` 尝试在构建期下载。它不复制 `jamesits/docker-dst-server` 或 `superjump22/dontstarve-server-docker` 的 Dockerfile、entrypoint、supervisor 配置或脚本。
+## 协作约定与上下文
 
-## 快速部署
-
-在一台新的 Linux 服务器上：
-
-```bash
-sudo apt-get update
-sudo apt-get install -y curl
-curl -fsSL https://example.invalid/install-dst-server.sh -o install-dst-server.sh
-sudo bash install-dst-server.sh \
-  --token '替换成你的 Klei cluster token' \
-  --server-name '服务器名称' \
-  --server-password '服务器密码'
-```
-
-如果脚本已经在当前目录，可以直接：
-
-```bash
-sudo bash scripts/install-dst-server.sh \
-  --token '替换成你的 Klei cluster token' \
-  --server-name 'Our DST' \
-  --server-password 'secret'
-```
-
-也可以把 token 写到服务器上的临时文件：
-
-```bash
-sudo bash scripts/install-dst-server.sh \
-  --token-file /root/dst-token.txt \
-  --server-name 'Our DST' \
-  --server-password 'secret'
-```
-
-## 服务器端口
-
-云厂商安全组和服务器防火墙都需要开放 UDP：
-
-```text
-10999
-11000
-12346
-12347
-```
-
-玩家连接主要使用 `10999/udp`。如果启用洞穴，脚本会同时生成 `Master` 和 `Caves` 分片配置。
-
-## 目录结构
-
-脚本默认写入：
-
-```text
-/opt/dst-server/
-  docker-compose.yml
-  install-options.env
-  data/
-    DoNotStarveTogether/
-      Cluster_1/
-        cluster.ini
-        cluster_token.txt
-        Master/
-          server.ini
-          leveldataoverride.lua
-          modoverrides.lua
-        Caves/
-          server.ini
-          leveldataoverride.lua
-          modoverrides.lua
-        mods/
-          dedicated_server_mods_setup.lua
-```
-
-`cluster_token.txt` 是私密文件，不要提交到公开仓库。
-
-## 常用维护命令
-
-```bash
-cd /opt/dst-server
-sudo docker compose ps
-sudo docker compose logs -f --tail=120
-sudo docker compose restart
-sudo docker compose pull && sudo docker compose up -d
-```
-
-备份：
-
-```bash
-sudo tar -czf "/root/dst-backup-$(date +%F-%H%M).tar.gz" -C /opt/dst-server data
-```
-
-恢复时先停服，再把 `data` 解回 `/opt/dst-server`：
-
-```bash
-cd /opt/dst-server
-sudo docker compose down
-sudo tar -xzf /root/dst-backup-YYYY-MM-DD-HHMM.tar.gz -C /opt/dst-server
-sudo docker compose up -d
-```
-
-## 获取 Klei Token
-
-1. 打开 Klei Accounts。
-2. 进入 Don't Starve Together 的 Game Servers 页面。
-3. 创建一个新的 server/cluster。
-4. 复制生成的 cluster token。
-5. 部署时通过 `--token` 或 `--token-file` 提供。
-
-Token 是服务器归属凭证，不要发到聊天记录或公开仓库里。
-
-## 本地当前自检记录
-
-- 本地 Windows 当前没有 `docker` 命令，所以本地不作为运行环境。
-- 本地当前可用 SSH 别名是 `webhk`，目标是 `43.161.236.162`，默认用户 `root`。
-- 服务器当前系统是 OpenCloudOS 9.4，已有 Docker 29.5.3 和 Docker Compose v5.1.4。
-- SSH host key 已经写入本地 `known_hosts`。
-
-## 当前服务器部署方式
-
-本地把脚本上传到服务器：
-
-```powershell
-scp .\scripts\install-dst-server.sh webhk:/root/install-dst-server.sh
-```
-
-服务器上运行：
-
-```bash
-sudo bash /root/install-dst-server.sh \
-  --token '替换成你的 Klei cluster token' \
-  --server-name 'Our DST' \
-  --server-password 'secret'
-```
-
-如果 token 放在服务器文件里：
-
-```bash
-sudo bash /root/install-dst-server.sh \
-  --token-file /root/dst-token.txt \
-  --server-name 'Our DST' \
-  --server-password 'secret'
-```
+- 协作守则：`AGENTS.md`
+- 上下文工程入口：`.code/README.md`
+- 当前阶段验收标准：`.code/context/acceptance.md`

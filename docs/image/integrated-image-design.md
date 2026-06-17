@@ -236,7 +236,6 @@ docker/Dockerfile.dockerignore
 
 不修改：
 
-- 线上 `deploy/server/docker-compose.yml`
 - 当前服务器
 - 当前 admin API 行为
 

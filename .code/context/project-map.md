@@ -6,24 +6,24 @@
 README.md                 项目总入口
 AGENTS.md                 AI 协作和项目工作约束
 go.mod                    Go 模块声明
-cmd/mod-manager/          dst-admin Go HTTP 管理端
+cmd/mod-manager/          dst-admin Go HTTP 管理端（含旧版宿主机部署硬编码路径，待迁移）
 web/                      管理端页面模板和静态资源
 mods/                     管理端 MOD 状态种子和生成配置（运行产物已 git ignore）
-scripts/                  本地/服务器安装脚本（唯一源）
-deploy/                   线上部署资产快照和恢复说明
-docker/                   dst-waystone 生产构建上下文（Dockerfile/entrypoint/supervisor）
+docker/                   dst-waystone 镜像构建上下文 + Compose 启动
+examples/                 仓库自有示例（worldgenoverride 等）
 docs/                     设计、来源、镜像候选、MOD 整合文档
 .code/                    上下文工程和开发知识库
 ```
 
-## 运行与部署资产
+## 镜像构建与运行
 
-- `deploy/server/docker-compose.yml`：DST Compose 配置。
-- `deploy/server/Cluster_1/`：与线上 `Cluster_1` 完全对齐的集群配置（`cluster.ini`、`Master/`、`Caves/`、`mods/`），敏感字段需占位。
-- `deploy/admin-snapshot/`：管理端线上配置与 MOD 状态快照（`cluster.ini`、`install-options.env`、`server-settings.json`、`server-mods.json`）。
-- `deploy/systemd/`：管理端 systemd 配置和 env 示例。
-- `deploy/nginx/`：管理端反向代理片段。
-- `deploy/runtime-state/`：线上巡检记录，只记录必要状态，不记录密钥。
+- `docker/Dockerfile`：多阶段构建，builder 阶段产出 `mod-manager`，runtime 阶段在 `cm2network/steamcmd:root` 上装运行依赖。
+- `docker/compose.yml`：单服务启动，挂载 named volume `dst-data:/data`，从 `.env` 读环境变量。
+- `docker/.env.example`：`DST_CLUSTER_TOKEN`、`DST_ADMIN_KEY` 等运行时变量模板，复制为 `.env` 后填入真实值。
+- `docker/entrypoint.sh`：容器启动时初始化 `/data` 目录、写入 cluster token、按需运行 SteamCMD/MOD 更新。
+- `docker/supervisord.conf`：管理 `dst-admin`、`dst-master`、`dst-caves` 三个进程。
+- `docker/README.md`：构建和运行说明。
+- 设计与来源边界：`docs/image/integrated-image-design.md`、`docs/image/docker-image-source.md`、`docs/image/docker-image-candidates.md`。
 
 ## 管理端
 
@@ -35,16 +35,7 @@ docs/                     设计、来源、镜像候选、MOD 整合文档
 - 前端：`web/templates/index.html`、`web/static/app.css`、`web/static/app.js`
 - 文档：`docs/admin/mod-manager.md`、`docs/admin/mod-consolidation-plan.md`
 
-## dst-waystone
-
-- 构建入口：`docker/Dockerfile`
-- 运行入口：`docker/entrypoint.sh`
-- 进程配置：`docker/supervisord.conf`
-- 说明：`docker/README.md`
-- 设计：`docs/image/integrated-image-design.md`
-- 来源边界：`docs/image/docker-image-source.md`、`docs/image/docker-image-candidates.md`
-
-当前定位：生产构建上下文。仓库负责维护 Dockerfile 和配置模板；生产环境负责构建、发布、密钥注入、数据挂载和服务编排。
+注：`main.go` 当前仍硬编码 `/opt/dst-server/...` 旧宿主机路径和 `jamesits/dst-server:latest` compose 模板。迁移到 `dst-waystone` 容器内 `/data` 与 `/opt/dst/admin` 是后续独立任务。
 
 ## 饥荒 MOD 开发资料
 
