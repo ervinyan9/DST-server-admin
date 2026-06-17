@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>饥荒联机版管理端</title>
+  <link rel="stylesheet" href="/static/app.css?v={{.AssetVersion}}">
+  <script defer src="/static/app.js?v={{.AssetVersion}}"></script>
+  <script defer src="/static/vendor/alpine-3.15.12.min.js?v={{.AssetVersion}}"></script>
+</head>
+<body>
+  <div class="app-shell" x-data="dstAdminApp({ appId: '{{.AppID}}' })" x-init="init()" x-cloak>
+    <template x-if="!authenticated">
+      <main class="login-screen">
+        <section class="login-card">
+          <div class="brand-mark">DST</div>
+          <p class="eyebrow">远程管理端</p>
+          <h1>EX 娇柔的饥荒之旅</h1>
+          <p class="login-copy">输入管理密钥后进入控制台。这里可以查看服务器状态、管理 MOD、保存配置并重启服务。</p>
+          <form class="login-form" @submit.prevent="login()">
+            <label>
+              <span>管理密钥</span>
+              <input type="password" x-model="loginKey" placeholder="请输入 API Key" autocomplete="current-password">
+            </label>
+            <button class="btn btn-primary btn-wide" type="submit" :disabled="busy.auth === true || !loginKey.trim()">
+              <span x-text="busy.auth ? '验证中' : '进入管理端'"></span>
+            </button>
+          </form>
+          <p class="form-error" x-show="authError" x-text="authError"></p>
+        </section>
+      </main>
+    </template>
+
+    <template x-if="authenticated">
+      <div class="admin-layout">
+        <header class="admin-header">
+          <div class="header-title">
+            <div class="brand-mark small">DST</div>
+            <div>
+              <h1>饥荒联机版管理端</h1>
+              <p>AppID <span x-text="appId"></span> · Docker 专用服 · 香港节点</p>
+            </div>
+          </div>
+          <nav class="top-tabs" aria-label="主导航">
+            <button :class="tabClass('server')" @click="activeTab = 'server'">服务器</button>
+            <button :class="tabClass('mods')" @click="activeTab = 'mods'">MOD 管理</button>
+            <button :class="tabClass('players')" @click="activeTab = 'players'">玩家权限</button>
+          </nav>
+          <div class="header-actions">
+            <button class="btn btn-ghost" @click="refreshAll()" :disabled="busy.refresh === true">
+              <span x-text="busy.refresh === true ? '刷新中' : '刷新'"></span>
+            </button>
+            <button class="btn btn-danger" @click="logout()">退出</button>
+          </div>
+        </header>
+
+        <main class="admin-main">
+          <section x-show="activeTab === 'server'" class="view-stack">
+            <div class="dashboard-grid">
+              <section class="panel hero-panel">
+                <div class="panel-title-row">
+                  <div>
+                    <p class="eyebrow">服务器状态</p>
+                    <h2 x-text="serverStatusLabel()"></h2>
+                  </div>
+                  <span :class="statusBadgeClass(status.status)" x-text="status.status || 'unknown'"></span>
+                </div>
+                <p class="muted" x-text="status.message || '尚未读取服务器状态'"></p>
+                <div class="metric-grid">
+                  <div class="metric-card">
+                    <span>最后检查</span>
+                    <strong x-text="status.checked_at || '未检查'"></strong>
+                  </div>
+                  <div class="metric-card">
+                    <span>已安装 MOD</span>
+                    <strong x-text="enabledMods().length + ' 个启用'"></strong>
+                  </div>
+                  <div class="metric-card">
+                    <span>玩家记录</span>
+                    <strong x-text="players.length + ' 人'"></strong>
+                  </div>
+                </div>
+                <div class="action-row">
+                  <button class="btn btn-primary" @click="saveToServer()" :disabled="busy.save === true">
+                    <span x-text="busy.save === true ? '保存中' : '保存配置'"></span>
+                  </button>
+                  <button class="btn btn-danger" @click="restartServer()" :disabled="busy.restart === true">
+                    <span x-text="busy.restart === true ? '重启中' : '重启服务器'"></span>
+                  </button>
+                  <button class="btn btn-secondary" @click="loadServerStatus(false)" :disabled="busy.status === true">
+                    <span x-text="busy.status === true ? '读取中' : '刷新状态'"></span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="panel settings-panel">
+                <div class="panel-title-row">
+                  <div>
+                    <p class="eyebrow">基础设置</p>
+                    <h2>世界与连接信息</h2>
+                  </div>
+                  <button class="btn btn-secondary" @click="saveSettings()" :disabled="busy.settings === true">
+                    <span x-text="busy.settings === true ? '保存中' : '仅保存草稿'"></span>
+                  </button>
+                </div>
+                <div class="form-grid">
+                  <label>
+                    <span>服务器名称</span>
+                    <input x-model="settings.server_name" placeholder="EX 娇柔的饥荒之旅">
+                  </label>
+                  <label>
+                    <span>服务器密码</span>
+                    <input x-model="settings.server_password" placeholder="717815">
+                  </label>
+                  <label>
+                    <span>游戏模式</span>
+                    <select x-model="settings.game_mode">
+                      <option value="survival">生存模式</option>
+                      <option value="endless">无尽模式</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>最大人数</span>
+                    <input type="number" min="1" max="64" x-model.number="settings.max_players">
+                  </label>
+                </div>
+                <div class="toggle-grid">
+                  <label><input type="checkbox" x-model="settings.pause_when_empty"> 空服暂停</label>
+                  <label><input type="checkbox" x-model="settings.enable_caves"> 启用洞穴</label>
+                  <label><input type="checkbox" x-model="settings.pvp"> 开启 PVP</label>
+                </div>
+              </section>
+            </div>
+
+            <section class="panel">
+              <div class="panel-title-row">
+                <div>
+                  <p class="eyebrow">容器服务</p>
+                  <h2>Docker Compose 状态</h2>
+                </div>
+              </div>
+              <div class="service-grid">
+                <template x-for="service in status.services" :key="service.name + service.service">
+                  <article class="service-card">
+                    <div class="service-head">
+                      <strong x-text="service.service || service.name || 'DST 服务'"></strong>
+                      <span :class="statusBadgeClass(service.state)" x-text="service.health || service.state || 'unknown'"></span>
+                    </div>
+                    <dl>
+                      <div><dt>容器</dt><dd x-text="service.name || '-'"></dd></div>
+                      <div><dt>运行时长</dt><dd x-text="service.running_for || '-'"></dd></div>
+                      <div><dt>重启次数</dt><dd x-text="service.restart_count || '0'"></dd></div>
+                    </dl>
+                  </article>
+                </template>
+                <div class="empty-state" x-show="!status.services || !status.services.length">还没有读取到容器服务。</div>
+              </div>
+            </section>
+
+            <section class="panel logs-panel">
+              <div class="panel-title-row">
+                <div>
+                  <p class="eyebrow">最近日志</p>
+                  <h2>启动与 MOD 下载记录</h2>
+                </div>
+                <button class="btn btn-secondary" @click="loadServerStatus(false)" :disabled="busy.status === true">刷新日志</button>
+              </div>
+              <pre class="log-box" x-text="status.logs || '暂无日志'"></pre>
+            </section>
+          </section>
+
+          <section x-show="activeTab === 'mods'" class="view-stack">
+            <div class="mods-layout">
+              <section class="panel market-panel">
+                <div class="panel-title-row">
+                  <div>
+                    <p class="eyebrow">MOD 市场</p>
+                    <h2>搜索和安装</h2>
+                  </div>
+                  <button class="btn btn-secondary" @click="loadPopular()" :disabled="busy.popular === true">热门推荐</button>
+                </div>
+                <div class="toolbar">
+                  <input x-model="search.query" @keydown.enter="runSearch(true)" placeholder="输入 MOD 名称或 Workshop ID">
+                  <select x-model="search.sort" @change="runSearch(true)">
+                    <option value="timeupdated">优先最新</option>
+                    <option value="trend">近期趋势</option>
+                    <option value="totaluniquesubscribers">订阅最多</option>
+                    <option value="toprated">评分最高</option>
+                  </select>
+                  <button class="btn btn-primary" @click="runSearch(true)" :disabled="busy.search === true">
+                    <span x-text="busy.search === true ? '搜索中' : '搜索'"></span>
+                  </button>
+                </div>
+                <div class="helper-row">
+                  <span x-text="searchStatus"></span>
+                  <div class="pager">
+                    <button class="btn btn-ghost" @click="previousPage()" :disabled="search.page <= 1 || busy.search === true">上一页</button>
+                    <span>第 <strong x-text="search.page"></strong> 页</span>
+                    <button class="btn btn-ghost" @click="nextPage()" :disabled="!search.hasMore || busy.search === true">下一页</button>
+                  </div>
+                </div>
+                <div class="market-scroll">
+                  <template x-for="item in search.results" :key="item.id">
+                    <article class="mod-card">
+                      <img :src="item.preview || '/static/mod-placeholder.svg'" alt="">
+                      <div class="mod-body">
+                        <div class="mod-title-row">
+                          <h3 x-text="item.display_title || item.title || ('Workshop ' + item.id)"></h3>
+                        </div>
+                        <p class="muted small" x-text="item.title"></p>
+                        <div class="tag-row">
+                          <span class="tag" x-text="item.category || '其他'"></span>
+                          <span class="tag warn" x-show="item.client_required">客户端也要安装</span>
+                          <span class="tag ok" x-show="item.server_only">服务端 MOD</span>
+                        </div>
+                        <p class="mod-desc" x-text="item.description || '没有简介'"></p>
+                        <div class="mod-meta">
+                          <span x-text="'订阅 ' + formatNumber(item.subscriptions)"></span>
+                          <span x-text="'更新 ' + formatDate(item.time_updated)"></span>
+                        </div>
+                        <p class="form-error" x-show="item.blocked_reason" x-text="item.blocked_reason"></p>
+                      </div>
+                      <aside class="mod-actions">
+                        <code x-text="item.id"></code>
+                        <button class="btn btn-primary" @click="addMod(item.id)" :disabled="!!item.blocked_reason || isInstalled(item.id) || busy['add:' + item.id] === true">
+                          <span x-text="isInstalled(item.id) ? '已在右侧' : (busy['add:' + item.id] === true ? '添加中' : '添加到右侧')"></span>
+                        </button>
+                        <button class="btn btn-secondary" @click="downloadMod(item.id)" :disabled="busy['download:' + item.id] === true">
+                          <span x-text="busy['download:' + item.id] === true ? '下载中' : '下载文件'"></span>
+                        </button>
+                        <a class="btn btn-ghost" :href="item.file_url" target="_blank" rel="noreferrer">Workshop</a>
+                      </aside>
+                    </article>
+                  </template>
+                  <div class="empty-state" x-show="!search.results.length && busy.search !== true">没有搜索结果。可以试试输入 Workshop ID。</div>
+                </div>
+              </section>
+
+              <section class="panel installed-panel">
+                <div class="panel-title-row">
+                  <div>
+                    <p class="eyebrow">已安装 MOD</p>
+                    <h2>启用、下载与诊断</h2>
+                  </div>
+                  <button class="btn btn-secondary" @click="loadDiagnostics()" :disabled="busy.diagnostics === true">诊断</button>
+                </div>
+                <div class="manual-add">
+                  <input x-model="manualId" @keydown.enter="addManualMod()" placeholder="直接输入 Workshop ID">
+                  <button class="btn btn-primary" @click="addManualMod()" :disabled="!manualId">添加</button>
+                </div>
+                <div class="installed-scroll">
+                  <template x-for="item in mods" :key="item.id">
+                    <article class="installed-row">
+                      <label class="switch-line">
+                        <input type="checkbox" :checked="item.enabled" @change="toggleMod(item.id, $event.target.checked)">
+                        <span>
+                          <strong x-text="item.display_title || item.title || ('Workshop ' + item.id)"></strong>
+                          <small x-text="item.client_required ? '所有客户端也必须安装' : '服务端安装即可'"></small>
+                        </span>
+                      </label>
+                      <div class="installed-actions">
+                        <code x-text="item.id"></code>
+                        <button class="btn btn-secondary" @click="downloadMod(item.id)" :disabled="busy['download:' + item.id] === true">
+                          <span x-text="busy['download:' + item.id] === true ? '下载中' : '下载'"></span>
+                        </button>
+                        <button class="btn btn-danger" @click="removeMod(item.id)" :disabled="busy['remove:' + item.id] === true">移除</button>
+                      </div>
+                      <template x-if="diagnostics[item.id]">
+                        <div class="diagnostic-box">
+                          <div class="diag-grid">
+                            <span :class="diagClass(diagnostics[item.id].configured_setup)">下载配置</span>
+                            <span :class="diagClass(diagnostics[item.id].configured_override)">启用配置</span>
+                            <span :class="diagClass(diagnostics[item.id].downloaded)">文件存在</span>
+                            <span :class="diagClass(diagnostics[item.id].loaded_in_logs)">日志加载</span>
+                          </div>
+                          <ul x-show="diagnostics[item.id].problems && diagnostics[item.id].problems.length">
+                            <template x-for="problem in diagnostics[item.id].problems" :key="problem">
+                              <li x-text="problem"></li>
+                            </template>
+                          </ul>
+                        </div>
+                      </template>
+                    </article>
+                  </template>
+                  <div class="empty-state" x-show="!mods.length">还没有安装 MOD。</div>
+                </div>
+                <div class="action-row">
+                  <button class="btn btn-primary" @click="saveToServer()" :disabled="busy.save === true">保存到服务器</button>
+                  <button class="btn btn-secondary" @click="generateConfig()" :disabled="busy.generate === true">仅生成本地配置</button>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section x-show="activeTab === 'players'" class="view-stack">
+            <section class="panel">
+              <div class="panel-title-row">
+                <div>
+                  <p class="eyebrow">玩家权限</p>
+                  <h2>管理员列表</h2>
+                </div>
+                <button class="btn btn-secondary" @click="loadPlayers()" :disabled="busy.players === true">刷新玩家</button>
+              </div>
+              <div class="manual-add">
+                <input x-model="adminKuid" @keydown.enter="addAdminByKuid()" placeholder="Klei ID，例如 KU_AvFFQ7Ox">
+                <button class="btn btn-primary" @click="addAdminByKuid()" :disabled="!adminKuid">设为管理员</button>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>玩家</th>
+                      <th>Klei ID</th>
+                      <th>状态</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="player in players" :key="player.kuid">
+                      <tr>
+                        <td x-text="player.name || '未知玩家'"></td>
+                        <td><code x-text="player.kuid"></code><div class="muted small" x-text="player.last_seen"></div></td>
+                        <td><span :class="player.admin ? 'tag ok' : 'tag'" x-text="player.admin ? '管理员' : '普通玩家'"></span></td>
+                        <td>
+                          <button class="btn btn-secondary" x-show="!player.admin" @click="setAdmin(player.kuid, true)">设为管理员</button>
+                          <button class="btn btn-danger" x-show="player.admin" @click="setAdmin(player.kuid, false)">移除权限</button>
+                        </td>
+                      </tr>
+                    </template>
+                    <tr x-show="!players.length">
+                      <td colspan="4" class="empty-cell">还没有从日志中发现玩家。</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+        </main>
+
+        <div class="toast-stack" aria-live="polite">
+          <template x-for="toast in toasts" :key="toast.id">
+            <div :class="'toast ' + toast.type" x-text="toast.message"></div>
+          </template>
+        </div>
+      </div>
+    </template>
+  </div>
+</body>
+</html>

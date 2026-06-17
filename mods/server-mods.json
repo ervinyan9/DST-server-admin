@@ -1,0 +1,542 @@
+{
+  "mods": [
+    {
+      "id": "2536574008",
+      "title": "6更好的灭火器",
+      "display_title": "6更好的灭火器",
+      "category": "其他",
+      "description": "汉化版 原版网站：https://steamcommunity.com/sharedfiles/filedetails/?id=866623002 仅为汉化配置和一些信息 如有BUG请询问原作者",
+      "preview": "https://images.steamusercontent.com/ugc/1701781473421052409/26B878DFC163D1885CFB2DBED8C528817BFFA991/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2536574008",
+      "subscriptions": 1289,
+      "time_updated": 1625380299,
+      "tags": [
+        "item",
+        "server_only_mod",
+        "version:15"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "1860955902",
+      "title": "[DST]Global positioning system",
+      "display_title": "[DST]Global positioning system",
+      "category": "其他",
+      "description": "Server version full map location,Use small memory, priority server. author/作者：诸天明月 雪儿 服务器版全图定位，占内存小，优先服务器，只调用指南针代码，官方建筑错位不背锅，因为我这里只影响人物的地图图片而不是建筑图片。",
+      "preview": "https://images.steamusercontent.com/ugc/1500216141358079124/A5B8ACD7E1B5711612FAAAB0D427BEC777040613/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=1860955902",
+      "subscriptions": 109897,
+      "time_updated": 1598085514,
+      "tags": [
+        "version:1.06",
+        "server_only_mod",
+        "server_admin"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "2074508776",
+      "title": "Auto Door",
+      "display_title": "自动开门",
+      "category": "便捷操作",
+      "description": "",
+      "preview": "https://images.steamusercontent.com/ugc/1020572077991164647/129423ABD68DA9BDBC813690740C037875959542/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2074508776",
+      "subscriptions": 169389,
+      "time_updated": 1740157735,
+      "tags": [
+        "tweak",
+        "version:2.8",
+        "server_only_mod"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "3722867081",
+      "title": "better hammer",
+      "display_title": "better hammer",
+      "category": "其他",
+      "description": "Smash a building with a hammer, and get a full refund for all materials.",
+      "preview": "https://images.steamusercontent.com/ugc/16222466684195666121/0DE9838F4C37B823760AD7D9586C40467364AB1F/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3722867081",
+      "subscriptions": 47,
+      "time_updated": 1778343928,
+      "tags": [
+        "server_only_mod",
+        "version:0.1"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "1410800795",
+      "title": "Display Food Values",
+      "display_title": "Display Food Values",
+      "category": "其他",
+      "description": "Displays what food and healing items have what hunger, health, sanity values (including rotting and expiration date)",
+      "preview": "https://images.steamusercontent.com/ugc/931564107901126701/5AE6604DFF3328B758EF9CD72C3D14F64535D723/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=1410800795",
+      "subscriptions": 924,
+      "time_updated": 1528911454,
+      "tags": [
+        "version:Public preview version",
+        "server_only_mod"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "661253977",
+      "title": "Don't Drop Everything",
+      "display_title": "死亡不掉落",
+      "category": "死亡与重生",
+      "description": "If You like this, give a thumbs up! [img=http://images.akamai.steamusercontent.com/ugc/309991266634219774/CC3EAA33CE2659B1824BD02E852DBE8C820C73DC/][/img] Hint: When a player dies, The player must have amulets, A will drop. Players into a state of the soul after death, not drop all the items. [url=http://steamcommunity.com/sharedfiles/filedetails/?id=664113547][img=http://images.akamai.steamusercontent.com/ugc/275092284528761829/DABCF28D34CA7F9C92AC28E573594037B8492878/][/img][/url]",
+      "preview": "https://images.steamusercontent.com/ugc/275092284528778749/EE51C164D8E13386F597B72A7B232536DD83025B/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=661253977",
+      "subscriptions": 2642189,
+      "time_updated": 1597029317,
+      "tags": [
+        "tweak",
+        "server_only_mod",
+        "server_admin",
+        "Other",
+        "version:11:15 2020-08-10"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "676297854",
+      "title": "Fire resurrection",
+      "display_title": "火堆复活",
+      "category": "死亡与重生",
+      "description": "Should be compatiable with various item ownership mods so you can only rez at your own fires if you use them. Allows you to ressurect yourself as a ghost when you haunt the various fires Works in modes where you can rez at the portal. Also adds a board worth of fuel to the fire, which lights firepits, so you can rez at night and not die instantly. Works on: Campfire Firepit Endothermic Fire Endothermic Fire Pit Delux Campfires mod Has options to set hunger/health/sanity/max health penalty on res if the admin wishes. Lighting strike on rez can also be removed if you don't like it. Also has options to enable/disable rez at all supported fire types. Defaults are all previous behavior. Also has ...",
+      "preview": "https://images.steamusercontent.com/ugc/90472114704211614/3FE741EA2D1CD3EFE3A50D463F6CE34EA4776947/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=676297854",
+      "subscriptions": 390641,
+      "time_updated": 1486437173,
+      "tags": [
+        "environment",
+        "utility",
+        "tweak",
+        "server_only_mod",
+        "version:v2.6"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "2989465629",
+      "title": "Fire resurrection Consist of Functional Medal",
+      "display_title": "复活增强",
+      "category": "死亡与重生",
+      "description": "Add a fire pit with Functional Medal to Fire Resurrection and an obsidian fire pit to Tropical Experience | The Volcano Biome. Should be compatiable with various item ownership mods so you can only rez at your own fires if you use them. Allows you to ressurect yourself as a ghost when you haunt the various fires Works in modes where you can rez at the portal. Also adds a board worth of fuel to the fire, which lights firepits, so you can rez at night and not die instantly. Works on: Campfire Firepit Endothermic Fire Endothermic Fire Pit Delux Campfires mod Functional Medal mod Tropical Experience | The Volcano Biome mod Has options to set hunger/health/sanity/max health penalty on res if the ...",
+      "preview": "https://images.steamusercontent.com/ugc/2019349027404234190/F303F63845D3ABD6F370FC6A20B9A38B29F66268/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2989465629",
+      "subscriptions": 6250,
+      "time_updated": 1686806349,
+      "tags": [
+        "utility",
+        "server_only_mod",
+        "version:v2.6.2"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "356930882",
+      "title": "Infinite Tent Uses",
+      "display_title": "帐篷无限使用",
+      "category": "物品与耐久",
+      "description": "Simple mod that makes tents infinitely durable (aka sets the amount of uses to an unreasonably high number). Configure how many uses your tents have if you so wish, default setting is infinite. Now with Siestas, too.",
+      "preview": "https://images.steamusercontent.com/ugc/41987135241294598/E11ABB83273515A541B3836BC1B41E6D18D4015C/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=356930882",
+      "subscriptions": 1014039,
+      "time_updated": 1593542799,
+      "tags": [
+        "item",
+        "tweak",
+        "version:1.8",
+        "server_only_mod"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "2189004162",
+      "title": "Insight (Show Me+)",
+      "display_title": "Insight (Show Me+)",
+      "category": "其他",
+      "description": "[h1]Thank you for 1 million subscribers![/h1] I never expected this many users. Thank you for your support! [h1]Background Information[/h1] Inspired by Show Me. Because I like to know everything about everything. Show me was nice, but it was inaccurate/weird for some things and just didn't have what I was looking for. This was coded from scratch, and I originally made it for DS. I ported it over! [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2081254154][b]Click for DS Version[/b][/url] [h1]Details[/h1] Whereas some mods provide information only on inspection, this provides a tooltip with various information on mouse over. Information is cached for items in your active area (Kle...",
+      "preview": "https://images.steamusercontent.com/ugc/1479948484468384018/FD83481D00C2D0CDB02F6D53D6A957A976CE95ED/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2189004162",
+      "subscriptions": 1268711,
+      "time_updated": 1780273395,
+      "tags": [
+        "all_clients_require_mod",
+        "interface",
+        "item",
+        "tweak",
+        "utility",
+        "version:6.0.1"
+      ],
+      "server_only": false,
+      "client_required": true,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "631648169",
+      "title": "JiShaGongGao - DIYb [DST]怪物击杀公告 Boss出现公告",
+      "display_title": "击杀与 Boss 公告",
+      "category": "信息与公告",
+      "description": "Sorry! This mod language into Chinese. =.= Temporarily does not support other languages. 如果你喜欢这个，请点赞，谢谢！ [img=http://images.akamai.steamusercontent.com/ugc/309991266634235018/A2C8F6D4605E159BE69C36B7CAAD43A4C023FD46/][/img] 为了回应评论里的要求，困难模式功能已删除 [h1]查看玩家坐标推荐一个mod：[url=https://steamcommunity.com/sharedfiles/filedetails/?id=373480109]Coordinate [/url][/h1] 修改内容如下： [list] [*]海象、座狼、钢羊、电羊、蜘蛛女王和各大Boss的击杀公告。 [*]各大Boss、赃物袋出现公告以及坐标位置。 [*]威洛遭受攻击，攻击者会自燃，不可被点燃者除外。 [*]格��...",
+      "preview": "https://images.steamusercontent.com/ugc/309991900832560179/257F1B6E597C275E19F5CB3F57E62DE286FF023A/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=631648169",
+      "subscriptions": 143381,
+      "time_updated": 1572286634,
+      "tags": [
+        "art",
+        "worldgen",
+        "server_only_mod",
+        "server_admin",
+        "Other",
+        "version:02:13 2019-10-29"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "597417408",
+      "title": "Less lags",
+      "display_title": "服务器减卡顿",
+      "category": "服务器管理",
+      "description": "=============================================================== [b]WARNING:[/b] This mod was made for experienced admins of long running public dedicated servers with huge amount of players. It is not recommended to use this mod in any other case! It is also recommended to read discussions before using this mod. =============================================================== I hate to see how lag most old dedicated servers (1000+ days), and how admins are being forced to erase whole world and restart game only because of lags. That is why I publish this mod. [h1]What it does[/h1] First, it periodically perform cleaning of the server. Cleaning deletes some items on the ground. You can specify...",
+      "preview": "https://images.steamusercontent.com/ugc/361778221412168131/32FEF3A41BF94E27000223F662ACEFDFAB287079/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=597417408",
+      "subscriptions": 60259,
+      "time_updated": 1455813862,
+      "tags": [
+        "tweak",
+        "other",
+        "version:1.1.10",
+        "server_only_mod",
+        "server_admin"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "363112314",
+      "title": "Map Revealer for DST",
+      "display_title": "地图全开",
+      "category": "信息与公告",
+      "description": "[h1][b]DESCRIPTION[/b][/h1] It's a very simple mod revealing the entire map in the game, regardless of the level at which we find ourselves. Despite the simplicity makes it easy modding or just makes the game a lot easier. [h1][b]Mod has changed since the update 1.0. From now on, reveal map doesn't work automatically. Use the keyboard shortcuts below:[/b][/h1] [b]SHIFT + R - reveal map - works both: surface and caves (dedicated servers) worlds on all players but only host can use it.[/b] [b]SHIFT + F - fog of war disabled - works only for host on disabled caves.[/b] Have a nice use. [h1][b]FAQ[/b][/h1] Q:Mod not work, after i put shift+r combination map is still blank? A:It's normal... you m...",
+      "preview": "https://images.steamusercontent.com/ugc/925923059836029260/9EDE9938376EC3539364CD9E42FA0D85BD374988/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=363112314",
+      "subscriptions": 600830,
+      "time_updated": 1550269388,
+      "tags": [
+        "interface",
+        "utility",
+        "worldgen",
+        "version:1.1",
+        "server_only_mod",
+        "server_admin",
+        "Other"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "604761020",
+      "title": "Multi Rocks",
+      "display_title": "多倍岩石资源",
+      "category": "其他",
+      "description": "If You like this, give a thumbs up! [img=http://images.akamai.steamusercontent.com/ugc/309991266634219774/CC3EAA33CE2659B1824BD02E852DBE8C820C73DC/][/img] [list] [*]More rocks [*]Make the mines have more duration, more mines for players. [*]Let boulders pick longer. [*]Avoid boulders depletion. [/list] [url=http://steamcommunity.com/sharedfiles/filedetails/?id=634238081] [img=http://images.akamai.steamusercontent.com/ugc/309991266634153213/C4D0DB6495300B1892B4D9B78B76E4EC9B89DBA0/][/img] [/url]",
+      "preview": "https://images.steamusercontent.com/ugc/356150731152431816/C3403FC8BD48E4F76C5924A6C1CEB9D946204B81/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=604761020",
+      "subscriptions": 627663,
+      "time_updated": 1503456020,
+      "tags": [
+        "tweak",
+        "server_only_mod",
+        "server_admin",
+        "Other",
+        "version:170823.10:40"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "466732225",
+      "title": "No Thermal Stone Durability",
+      "display_title": "暖石无限耐久",
+      "category": "物品与耐久",
+      "description": "Like seriously Klei, it was the last item you would've ever wanted to nerf. Server-side only.",
+      "preview": "https://images.steamusercontent.com/ugc/156902491433527916/E085AB979A7AB92BE2DEC9967B431BBE9AEAB96C/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=466732225",
+      "subscriptions": 1519313,
+      "time_updated": 1488403387,
+      "tags": [
+        "tweak",
+        "version:FULL 4",
+        "server_only_mod"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "700236083",
+      "title": "Quick Actions",
+      "display_title": "快速动作",
+      "category": "便捷操作",
+      "description": "Enables the ability to set quick animations for many actions (Picking things, cooking, harvesting, healing, drawing, resetting traps, and building)",
+      "preview": "https://images.steamusercontent.com/ugc/934934574629512520/E692200C18B71BF740AB7F99D6B1DFD57BCA7E7D/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=700236083",
+      "subscriptions": 93650,
+      "time_updated": 1521951829,
+      "tags": [
+        "environment",
+        "utility",
+        "tweak",
+        "version:1.7",
+        "server_only_mod"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "501385076",
+      "title": "Quick Pick",
+      "display_title": "快速采集",
+      "category": "便捷操作",
+      "description": "[b]The mod removes the animation of harvest grass, sapling, berrybush and other things, which makes them picked like a carrot.[/b] [b]It makes almost everything pick quickly.[/b] [h1]Changelog[/h1] [list] [*][b]Version 1.3.0[/b] -[i]Quick cooking foods on firepit.[/i] [*][b]Version 1.2.0[/b] -[i]Added Wormwood Crop quickly pickable.[/i] [*][b]Version 1.1.1[/b] -[i]Added Carrat and Moon Sapling quickly pickable.[/i] [*][b]Version 1.0.6[/b] -[i]Added Oasis Cactus and Bull Kelp quickly pickable.[/i] [*][b]Version 1.0.5[/b] -[i]Quick harvest from pots, dryers and farms configurable.[/i] [*][b]Version 1.0.4[/b] -[i]Added the meat rack and bee box quickly pickable.[/i] [*][b]Version 1.0.3[/b] -[i]...",
+      "preview": "https://images.steamusercontent.com/ugc/1476405876665245402/38FFD33965BE8386D0AE82D0E0A660CD45711FCD/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=501385076",
+      "subscriptions": 2377844,
+      "time_updated": 1602650872,
+      "tags": [
+        "environment",
+        "tweak",
+        "version:1.4.0",
+        "server_only_mod",
+        "Other"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "462434129",
+      "title": "Restart",
+      "display_title": "重选角色 / 重生指令",
+      "category": "死亡与重生",
+      "description": "Server side mod. [h1]Instruction: [/h1] [list] [*] Type cammands below to Re select your character / resurrect / Kill youself. [*] spam can be stop by set the time interval! [*] Drop function supported. [*] Configuration supported. [/list] [h1]Commands: [/h1] [list] [*] #restart - (Returning to character select screen to choose another character.) [*] #restart_d - (Drop Everything and return to character select screen to choose another character.) [*] #resurrect - (You will get a new life.) [*] #kill (Kill youself) [/list] [h1]Configuration [/h1] [list] [*] Ignoring Admin(default: On) - )Admin can restart all the time.) [*] Interval (min) (default: 5) - (Specifies the amount of time that is ...",
+      "preview": "https://images.steamusercontent.com/ugc/271723758963733664/3224844973F1747F5A907E2E2F1D0B272DD6C01C/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=462434129",
+      "subscriptions": 932296,
+      "time_updated": 1487163380,
+      "tags": [
+        "other",
+        "version:0.3.2",
+        "server_only_mod"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "1126497610",
+      "title": "Single Player Health",
+      "display_title": "Single Player Health",
+      "category": "其他",
+      "description": "[b]Lowers health of creatures to match Don't Starve (DS) single player.[/b] [h1]Which monsters are affected:[/h1] [list] [*]All mobs that had their Health Points (HP) increased in Don't Starve Together (DST) in comparison to DS, [*]Boss Monsters exclusive to DST (Bee Queen, Antlion, Toadstool, Misery Toadstool, Fuelreaver, Shadow Pieces, Malbatross, Celestial Champion, Crab King, Eye of Terror, Twins of Terror), [*]Some lesser mobs exclusive to DST (Ewecus), [/list] [h1]What has been changed:[/h1] [list] [*]In most cases HP has been halved, [*]Other cases involve reducing health more than half (i.e Toadstool, Ancient Guardian), [*]Health and/or count of minions spawned by bosses (Bee Queen, ...",
+      "preview": "https://images.steamusercontent.com/ugc/843718208234499849/C61F063C430E5BD82A4E01AF2CD63C3ACACD4DB5/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=1126497610",
+      "subscriptions": 25354,
+      "time_updated": 1756420487,
+      "tags": [
+        "tweak",
+        "version:2.8",
+        "server_only_mod"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "3494615834",
+      "title": "Triple Harvest 三倍采集 (n-fold)",
+      "display_title": "三倍采集",
+      "category": "其他",
+      "description": "Picking, chopping trees, digging and mining can give you multiple rewards. And, with a small chance of finding rare treasures. - This module will make the game easier, it is recommended to choose to use it according to personal preference. ---- [h1]Multiplier settings[/h1] Flexible multiplier configuration. [h3]General multipliers: ×1, ×2, ×3, ×5 [/h3] - Default: ×3 [h3]Each resource supports: General multiplier, ×1, ×2, ×3, ×5 [/h3] - Default: General multiplier [img]https://images.steamusercontent.com/ugc/18126186092339875022/E07A879D0D899D89E4AA0C2F3845192B2CA20C34/[/img] [h1]Resource categories[/h1] [img]https://images.steamusercontent.com/ugc/10702642861711051461/93AA161B698480...",
+      "preview": "https://images.steamusercontent.com/ugc/13142560335925268145/03D6DE813192B74A51F7FA7F3558DBF811AF512E/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3494615834",
+      "subscriptions": 50930,
+      "time_updated": 1757490657,
+      "tags": [
+        "all_clients_require_mod",
+        "environment",
+        "item",
+        "utility",
+        "version:1.7.9.1",
+        "worldgen"
+      ],
+      "server_only": false,
+      "client_required": true,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "648064643",
+      "title": "Work Faster",
+      "display_title": "加快工作速度",
+      "category": "便捷操作",
+      "description": "Cut down a tree or dig a Boulder with one hit.",
+      "preview": "https://images.steamusercontent.com/ugc/530669546155898783/BC9788C594006B41BB4FD814B14F395F2FFF6312/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=648064643",
+      "subscriptions": 145579,
+      "time_updated": 1466495593,
+      "tags": [
+        "item",
+        "environment",
+        "interface",
+        "utility",
+        "version:1.03",
+        "server_only_mod",
+        "Other"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "514758022",
+      "title": "World Regrowth - Renewable World",
+      "display_title": "世界资源再生",
+      "category": "世界设置",
+      "description": "World will regrowth itself. Every entity will grow on its proper position. [b]The regrowth list is include: [/b] [list] [*]beefalo [*]beehive [*]berry bush [*]Jurry berry bush [*]Twiggy Tree [*]GrassGekko [*]clockwork monster [*]mushroom [*]cactus [*]carrot [*]catcoonden [*]tree [*]firefly [*]flower [*]grass [*]hound mound [*]volt goat [*]marble pillar [*]marble tree [*]spiky bush [*]spiky tree [*]rundown house [*]pig house [*]rabbit hole [*]reeds [*]sapling [*]tentacle [*]killer bee hive [*]spider den [*]totally normal tree [*]touch stone [*]pig head [*]bones [*]flint and rocks [/list] Here is the respawn mechanism: When mod first installs, it will calculate the amounts of these respawnable...",
+      "preview": "https://images.steamusercontent.com/ugc/621850193475150911/EB91734EC6310E925FB0408F2828D96980C9DB72/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=514758022",
+      "subscriptions": 79210,
+      "time_updated": 1471783734,
+      "tags": [
+        "environment",
+        "tweak",
+        "version:1.2.1",
+        "server_only_mod",
+        "server_admin",
+        "Other"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "1898181913",
+      "title": "冰箱保鲜，反鲜",
+      "display_title": "冰箱保鲜 / 反鲜",
+      "category": "物品与耐久",
+      "description": "使冰箱里的食物永久保鲜，还可以返鲜。这是一个超强的保鲜mod，甚至能抵抗蛤的毒的腐败，食物放在冰箱的时间够久甚至能延长保质期到上万天，喜欢的请给五星（ps：由于官方的更新现在保质期最长10天了，我有时间研究一下看能不能解决）",
+      "preview": "https://images.steamusercontent.com/ugc/769479550963345334/83AC32BCE9AA411BA51E89834A086917694ACB12/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=1898181913",
+      "subscriptions": 466690,
+      "time_updated": 1576324549,
+      "tags": [
+        "version:3.0",
+        "server_only_mod",
+        "Other"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "1998081438",
+      "title": "掉落堆叠(Drop \u0026 Stack)",
+      "display_title": "掉落自动堆叠",
+      "category": "便捷操作",
+      "description": "[b]新模式: 真正的全堆叠.[/b] 旧模式兼容项: 标准掉落(砍树,挖矿,鸟笼,杀怪,等等); 交易(猪王,鱼王,蚁狮,神话聚宝盆); 猪人便便; 石果开采; 熊大毛丛;邪天翁羽毛;格罗姆黏液; 灰烬; 风滚草采集;包裹拆解; 地皮挖掘; 食物腐烂; 刮剃(牛毛人须). [b]New Mode: The Really All Stacking.[/b] The list of supported drops by Old Mode: Standard drops(Chop, Mine, Birdcage, Kill, etc.); Trade(Pig King, King of the Merms, Antlion, Treasure Bowl from Myth Words); Pig Man's Manure; Mining of Stone Fruit; Bearger's Fur Tuft; Malbatross Feather; Glommer's Goop; Ashes; Picking of Tumbleweed; Unwrapping of Bundle; Digging of Turf; Rotting F...",
+      "preview": "https://images.steamusercontent.com/ugc/775119288867117683/3CCBFC09CAE5C9527261D34D8D907C9ABC63341F/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=1998081438",
+      "subscriptions": 691971,
+      "time_updated": 1677309903,
+      "tags": [
+        "server_only_mod",
+        "version:2.0.11"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    },
+    {
+      "id": "3484720277",
+      "title": "无限耐久",
+      "display_title": "无限耐久",
+      "category": "其他",
+      "description": "自定义配置物品耐久是否为无限,并移除百分比显示 Customize whether item durability is infinite and remove 100% display 自定义配置箱子与保鲜背包等是否保鲜或反鲜 Customize whether Chest and Insulated Pack are Always Fresh or Refresh 重排了物品文本顺序,补齐了缺失的物品,增加了各角色专属物品 添加了箱子与保鲜背包等物品建筑的保鲜设定 原作者为 MK 改动自 Yuki_Spike 添加温蒂专属物品 添加了游戏最新的道具 补全了背包保鲜 这里有个合集 https://steamcommunity.com/sharedfiles/filedetails/?id=3490334555",
+      "preview": "https://images.steamusercontent.com/ugc/16269947474048311607/720528BA2848C1F0A9E953DCEA7F1F320822AF13/",
+      "file_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3484720277",
+      "subscriptions": 11135,
+      "time_updated": 1774783390,
+      "tags": [
+        "server_only_mod",
+        "version:1.5.0"
+      ],
+      "server_only": true,
+      "client_required": false,
+      "installable": true,
+      "enabled": true
+    }
+  ],
+  "settings": {
+    "server_name": "EX ?????",
+    "server_password": "717815",
+    "game_mode": "endless",
+    "max_players": 8,
+    "pvp": false,
+    "pause_when_empty": true,
+    "enable_caves": true
+  }
+}

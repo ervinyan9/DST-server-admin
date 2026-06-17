@@ -1,0 +1,4 @@
+secrets/
+*.local
+*.secret
+config/generated/
