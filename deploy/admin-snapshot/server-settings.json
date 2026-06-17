@@ -1,0 +1,9 @@
+{
+  "server_name": "EX 娇柔的饥荒之旅",
+  "server_password": "<set-on-server>",
+  "game_mode": "survival",
+  "max_players": 6,
+  "pvp": false,
+  "pause_when_empty": true,
+  "enable_caves": true
+}

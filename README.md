@@ -1,13 +1,53 @@
 # Don't Starve Together Docker Server
 
-这个仓库保存《饥荒联机版》专用服务器的部署脚本、默认配置和操作记录。
+这个仓库保存《饥荒联机版》专用服务器的部署脚本、默认配置、远程管理端和操作记录。
 
 设计原则：
 
 - 服务器是 Linux/Ubuntu，脚本直接在服务器上运行。
-- 本地只保存脚本和文档，方便备份、审阅和之后同步。
+- 本地保存脚本、管理端代码、可复现部署配置和文档，方便备份、审阅和之后同步。
 - 除了 Klei server token，其他配置都可以由脚本自动生成。
 - Docker 镜像在服务器端拉取，存档和配置保存在 `/opt/dst-server/data`。
+
+## 当前整合包
+
+服务器当前可复现部署资产已保存到：
+
+```text
+deploy/
+```
+
+其中包含：
+
+- `deploy/server/docker-compose.yml`：当前线上 DST Docker Compose 配置。
+- `deploy/server/Cluster_1/`：当前线上 `cluster.ini`、Master/Caves 分片配置和 MOD Lua 配置，敏感字段已占位。
+- `deploy/systemd/dst-admin.service`：当前线上管理端 systemd 服务。
+- `deploy/systemd/dst-admin.env.example`：管理密钥环境文件示例，真实值不进仓库。
+- `deploy/nginx/dst-admin-subpath.conf`：当前管理端 subpath 反代配置片段。
+- `deploy/admin-snapshot/`：从线上拉取的管理端配置与 MOD 状态快照，敏感字段已占位。
+- `deploy/runtime-state/2026-06-17-webhk.md`：本次从线上采集的服务、镜像、端口和防火墙状态。
+
+恢复或迁移服务器时，优先阅读 `deploy/README.md`，再按需使用 `scripts/install-dst-server.sh`。
+
+当前使用的 Docker 镜像来源、构建文件、协议和线上镜像内部配置见 `docs/image/docker-image-source.md`。可替代镜像候选和推荐路径见 `docs/image/docker-image-candidates.md`。
+
+## dst-waystone 生产构建上下文
+
+本仓库正在推进 `dst-waystone` 服务封装上下文，目标是维护 Dockerfile、默认配置模板和自写启动编排，后续由生产环境负责实际镜像构建、密钥注入、数据挂载和服务编排。
+
+设计文档：
+
+```text
+docs/image/integrated-image-design.md
+```
+
+本地构建：
+
+```bash
+docker build -f docker/Dockerfile -t dst-waystone:local .
+```
+
+详细运行方式见 `docker/README.md`。该构建上下文通过 SteamCMD 在运行时下载或更新 DST AppID `343050`，也可以用 `--build-arg DST_DOWNLOAD_AT_BUILD=true` 尝试在构建期下载。它不复制 `jamesits/docker-dst-server` 或 `superjump22/dontstarve-server-docker` 的 Dockerfile、entrypoint、supervisor 配置或脚本。
 
 ## 快速部署
 
@@ -119,7 +159,7 @@ Token 是服务器归属凭证，不要发到聊天记录或公开仓库里。
 ## 本地当前自检记录
 
 - 本地 Windows 当前没有 `docker` 命令，所以本地不作为运行环境。
-- 本地已有 SSH 别名 `dst-hk`，目标是 `43.161.236.162`，默认用户 `root`。
+- 本地当前可用 SSH 别名是 `webhk`，目标是 `43.161.236.162`，默认用户 `root`。
 - 服务器当前系统是 OpenCloudOS 9.4，已有 Docker 29.5.3 和 Docker Compose v5.1.4。
 - SSH host key 已经写入本地 `known_hosts`。
 
@@ -128,7 +168,7 @@ Token 是服务器归属凭证，不要发到聊天记录或公开仓库里。
 本地把脚本上传到服务器：
 
 ```powershell
-scp .\scripts\install-dst-server.sh dst-hk:/root/install-dst-server.sh
+scp .\scripts\install-dst-server.sh webhk:/root/install-dst-server.sh
 ```
 
 服务器上运行：

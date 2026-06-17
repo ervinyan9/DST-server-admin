@@ -1,0 +1,15 @@
+[Unit]
+Description=DST Web Admin
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/dst-admin
+EnvironmentFile=/etc/dst-admin.env
+ExecStart=/opt/dst-admin/mod-manager -root /opt/dst-admin -listen 0.0.0.0 -port 8788 -dst-dir /opt/dst-server
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

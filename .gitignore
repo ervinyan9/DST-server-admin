@@ -1,4 +1,18 @@
+# Secrets and local overrides
 secrets/
 *.local
 *.secret
+
+# Build artifacts
+/bin/
+*.exe
+mod-manager
+/tmp/
+
+# Generated runtime artifacts
 config/generated/
+mods/generated/
+
+# IDE
+.idea/
+.vscode/

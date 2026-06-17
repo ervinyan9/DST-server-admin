@@ -1,0 +1,10 @@
+.git
+.codegraph
+secrets
+config/generated
+docker/tmp
+mods/generated
+*.local
+*.secret
+mod-manager
+bin/*.exe
