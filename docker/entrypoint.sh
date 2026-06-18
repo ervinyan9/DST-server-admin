@@ -41,11 +41,13 @@ update_game_if_requested() {
     return
   fi
   log "Updating DST dedicated server via SteamCMD."
-  "${STEAMCMDDIR:-/home/steam/steamcmd}/steamcmd.sh" \
+  if ! "${STEAMCMDDIR:-/home/steam/steamcmd}/steamcmd.sh" \
     +force_install_dir "$GAME_DIR" \
     +login anonymous \
     +app_update 343050 \
-    +quit
+    +quit; then
+    log "DST server update failed; continuing with dst-admin only."
+  fi
 }
 
 update_mods_if_requested() {
@@ -61,12 +63,14 @@ update_mods_if_requested() {
     return
   fi
   log "Updating DST server mods."
-  "${GAME_DIR}/bin64/dontstarve_dedicated_server_nullrenderer_x64" \
+  if ! "${GAME_DIR}/bin64/dontstarve_dedicated_server_nullrenderer_x64" \
     -only_update_server_mods \
     -ugc_directory "${DATA_DIR}/ugc_mods" \
     -persistent_storage_root "$DATA_DIR" \
     -conf_dir cluster \
-    -cluster Cluster_1
+    -cluster Cluster_1; then
+    log "DST server mod update failed; continuing startup."
+  fi
 }
 
 main() {
