@@ -17,6 +17,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG STEAM_APPID=343050
 ARG DST_DOWNLOAD_AT_BUILD=false
 ARG USE_BUILD_PROXY=false
+ARG USE_APT_PROXY=false
 ARG BUILD_HTTP_PROXY=""
 ARG BUILD_HTTPS_PROXY=""
 ARG BUILD_NO_PROXY=""
@@ -45,7 +46,7 @@ ENV DST_ROOT=/opt/dst \
     STEAMCMD_PLATFORM_TYPE=linux
 
 RUN set -eux; \
-    if [ "${USE_BUILD_PROXY}" = "true" ]; then \
+    if [ "${USE_APT_PROXY}" = "true" ]; then \
       export HTTP_PROXY="${BUILD_HTTP_PROXY}" HTTPS_PROXY="${BUILD_HTTPS_PROXY}" \
         http_proxy="${BUILD_HTTP_PROXY}" https_proxy="${BUILD_HTTPS_PROXY}" \
         NO_PROXY="${BUILD_NO_PROXY}" no_proxy="${BUILD_NO_PROXY}"; \
