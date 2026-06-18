@@ -43,7 +43,8 @@ ENV DST_ROOT=/opt/dst \
     DST_ENABLE_CAVES=true \
     DST_SKIP_GAME_UPDATE=true \
     DST_UPDATE_MODS_ON_START=false \
-    STEAMCMD_PLATFORM_TYPE=linux
+    STEAMCMD_PLATFORM_TYPE=linux \
+    STEAMCMD_PLATFORM_BITNESS=64
 
 RUN set -eux; \
     if [ "${USE_APT_PROXY}" = "true" ]; then \
@@ -91,6 +92,7 @@ RUN set -eux; \
     if [ "${DST_DOWNLOAD_AT_BUILD}" = "true" ]; then \
       "${STEAMCMDDIR}/steamcmd.sh" \
         +@sSteamCmdForcePlatformType "${STEAMCMD_PLATFORM_TYPE}" \
+        +@sSteamCmdForcePlatformBitness "${STEAMCMD_PLATFORM_BITNESS}" \
         +force_install_dir "${DST_GAME_DIR}" \
         +login anonymous \
         +app_update "${STEAM_APPID}" validate \

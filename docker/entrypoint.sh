@@ -43,6 +43,7 @@ update_game_if_requested() {
   log "Updating DST dedicated server via SteamCMD."
   if ! "${STEAMCMDDIR:-/home/steam/steamcmd}/steamcmd.sh" \
     +@sSteamCmdForcePlatformType "${STEAMCMD_PLATFORM_TYPE:-linux}" \
+    +@sSteamCmdForcePlatformBitness "${STEAMCMD_PLATFORM_BITNESS:-64}" \
     +force_install_dir "$GAME_DIR" \
     +login anonymous \
     +app_update 343050 \
