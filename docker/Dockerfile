@@ -82,6 +82,11 @@ RUN set -eux; \
     mkdir -p "${DST_GAME_DIR}" "${DST_ADMIN_DIR}" "${DST_RUNTIME_DIR}" "${DST_DATA_DIR}"
 
 RUN set -eux; \
+    chown -R steam:steam "${DST_GAME_DIR}"
+
+USER steam
+
+RUN set -eux; \
     if [ "${USE_BUILD_PROXY}" = "true" ]; then \
       export HTTP_PROXY="${BUILD_HTTP_PROXY}" HTTPS_PROXY="${BUILD_HTTPS_PROXY}" \
         http_proxy="${BUILD_HTTP_PROXY}" https_proxy="${BUILD_HTTPS_PROXY}" \
@@ -112,6 +117,8 @@ RUN set -eux; \
     else \
       printf '%s\n' "Skipping DST download at build time. Set --build-arg DST_DOWNLOAD_AT_BUILD=true to enable it."; \
     fi
+
+USER root
 
 COPY --from=admin-builder /out/mod-manager /opt/dst/admin/mod-manager
 COPY web /opt/dst/admin/web
