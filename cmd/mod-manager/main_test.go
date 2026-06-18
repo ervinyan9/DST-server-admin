@@ -62,3 +62,12 @@ func TestPasswordLoginReturnsDerivedAdminKey(t *testing.T) {
 		t.Fatalf("verify with key status = %d, want %d", verified.StatusCode, http.StatusOK)
 	}
 }
+
+func TestTailText(t *testing.T) {
+	if got := tailText("abcdef", 3); got != "def" {
+		t.Fatalf("tailText() = %q, want %q", got, "def")
+	}
+	if got := tailText("abc", 10); got != "abc" {
+		t.Fatalf("tailText() = %q, want %q", got, "abc")
+	}
+}

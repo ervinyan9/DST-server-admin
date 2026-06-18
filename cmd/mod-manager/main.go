@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
@@ -1610,12 +1611,28 @@ func (a *app) downloadWorkshopMod(id string) (modDownloadResponse, error) {
 	if err := os.MkdirAll(ugcRoot, 0o755); err != nil {
 		return modDownloadResponse{}, err
 	}
-	cmd := exec.Command(steamcmdBin, "+force_install_dir", ugcRoot, "+login", "anonymous", "+workshop_download_item", appID, id, "+quit")
+	timeout := 4 * time.Minute
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	log.Printf("Downloading Workshop mod %s via SteamCMD.", id)
+	cmd := exec.CommandContext(
+		ctx,
+		steamcmdBin,
+		"+@sSteamCmdForcePlatformType", "linux",
+		"+force_install_dir", ugcRoot,
+		"+login", "anonymous",
+		"+workshop_download_item", appID, id,
+		"+quit",
+	)
 	out, err := cmd.CombinedOutput()
 	output := string(out)
-	if err != nil {
-		return modDownloadResponse{}, fmt.Errorf("SteamCMD 下载失败：%v\n%s", err, output)
+	if ctx.Err() == context.DeadlineExceeded {
+		return modDownloadResponse{}, fmt.Errorf("SteamCMD 下载超时（%s）：%s\n%s", timeout, id, tailText(output, 4000))
 	}
+	if err != nil {
+		return modDownloadResponse{}, fmt.Errorf("SteamCMD 下载失败：%v\n%s", err, tailText(output, 4000))
+	}
+	log.Printf("SteamCMD finished Workshop mod %s download.", id)
 
 	copyOutput, copyErr := a.copyDownloadedWorkshopMod(id)
 	if copyOutput != "" {
@@ -1639,9 +1656,16 @@ func (a *app) downloadWorkshopMod(id string) (modDownloadResponse, error) {
 		Status:     status,
 		Message:    message,
 		ID:         id,
-		Output:     output,
+		Output:     tailText(output, 4000),
 		Diagnostic: diag,
 	}, nil
+}
+
+func tailText(input string, maxBytes int) string {
+	if maxBytes <= 0 || len(input) <= maxBytes {
+		return input
+	}
+	return input[len(input)-maxBytes:]
 }
 
 func (a *app) copyDownloadedWorkshopMod(id string) (string, error) {
