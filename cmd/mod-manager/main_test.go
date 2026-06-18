@@ -87,3 +87,10 @@ func TestRunCommandOutputKillsProcessGroupOnTimeout(t *testing.T) {
 		t.Fatalf("runCommandOutput() returned too late: %s", elapsed)
 	}
 }
+
+func TestWorkshopDownloadTimeout(t *testing.T) {
+	t.Setenv("DST_WORKSHOP_DOWNLOAD_TIMEOUT", "150ms")
+	if got := workshopDownloadTimeout(); got != 150*time.Millisecond {
+		t.Fatalf("workshopDownloadTimeout() = %s, want 150ms", got)
+	}
+}

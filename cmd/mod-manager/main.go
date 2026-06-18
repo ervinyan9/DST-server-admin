@@ -1612,7 +1612,7 @@ func (a *app) downloadWorkshopMod(id string) (modDownloadResponse, error) {
 	if err := os.MkdirAll(ugcRoot, 0o755); err != nil {
 		return modDownloadResponse{}, err
 	}
-	timeout := 4 * time.Minute
+	timeout := workshopDownloadTimeout()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	log.Printf("Downloading Workshop mod %s via SteamCMD.", id)
@@ -1667,6 +1667,19 @@ func tailText(input string, maxBytes int) string {
 		return input
 	}
 	return input[len(input)-maxBytes:]
+}
+
+func workshopDownloadTimeout() time.Duration {
+	raw := strings.TrimSpace(os.Getenv("DST_WORKSHOP_DOWNLOAD_TIMEOUT"))
+	if raw == "" {
+		return 10 * time.Minute
+	}
+	value, err := time.ParseDuration(raw)
+	if err != nil || value <= 0 {
+		log.Printf("Invalid DST_WORKSHOP_DOWNLOAD_TIMEOUT=%q; using 10m.", raw)
+		return 10 * time.Minute
+	}
+	return value
 }
 
 func runCommandOutput(ctx context.Context, cmd *exec.Cmd) ([]byte, error) {
