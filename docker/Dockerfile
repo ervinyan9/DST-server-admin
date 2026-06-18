@@ -20,6 +20,8 @@ ARG USE_BUILD_PROXY=false
 ARG BUILD_HTTP_PROXY=""
 ARG BUILD_HTTPS_PROXY=""
 ARG BUILD_NO_PROXY=""
+ARG APT_MIRROR=""
+ARG APT_SECURITY_MIRROR=""
 
 ENV HTTP_PROXY="" \
     HTTPS_PROXY="" \
@@ -48,6 +50,20 @@ RUN set -eux; \
         NO_PROXY="${BUILD_NO_PROXY}" no_proxy="${BUILD_NO_PROXY}"; \
     else \
       unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy; \
+    fi; \
+    if [ -n "${APT_MIRROR}" ]; then \
+      find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -print0 \
+        | xargs -0 sed -i \
+          -e "s|http://deb.debian.org/debian|${APT_MIRROR}|g" \
+          -e "s|https://deb.debian.org/debian|${APT_MIRROR}|g"; \
+    fi; \
+    if [ -n "${APT_SECURITY_MIRROR}" ]; then \
+      find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -print0 \
+        | xargs -0 sed -i \
+          -e "s|http://deb.debian.org/debian-security|${APT_SECURITY_MIRROR}|g" \
+          -e "s|https://deb.debian.org/debian-security|${APT_SECURITY_MIRROR}|g" \
+          -e "s|http://security.debian.org/debian-security|${APT_SECURITY_MIRROR}|g" \
+          -e "s|https://security.debian.org/debian-security|${APT_SECURITY_MIRROR}|g"; \
     fi; \
     dpkg --add-architecture i386; \
     apt-get update; \
