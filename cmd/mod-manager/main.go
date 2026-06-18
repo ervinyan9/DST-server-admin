@@ -831,17 +831,28 @@ func (a *app) handleRestartServer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "未配置 Klei cluster token，无法启动 DST 服务", http.StatusBadRequest)
 		return
 	}
+	if err := a.ensureDSTServerBinary(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	s, err := a.loadState()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	results := []map[string]string{}
-	masterOut, masterErr := a.supervisorctl("restart", "dst-master")
-	results = append(results, map[string]string{"action": "restart dst-master", "output": masterOut, "error": errString(masterErr)})
+	services, statusErr := a.currentSupervisorServices()
+	if statusErr != nil {
+		http.Error(w, fmt.Sprintf("读取 supervisor 状态失败：%v", statusErr), http.StatusInternalServerError)
+		return
+	}
+	masterAction := supervisorStartAction("dst-master", services)
+	masterOut, masterErr := a.supervisorctl(masterAction, "dst-master")
+	results = append(results, map[string]string{"action": masterAction + " dst-master", "output": masterOut, "error": errString(masterErr)})
 	if s.Settings.EnableCaves {
-		out, err := a.supervisorctl("restart", "dst-caves")
-		results = append(results, map[string]string{"action": "restart dst-caves", "output": out, "error": errString(err)})
+		cavesAction := supervisorStartAction("dst-caves", services)
+		out, err := a.supervisorctl(cavesAction, "dst-caves")
+		results = append(results, map[string]string{"action": cavesAction + " dst-caves", "output": out, "error": errString(err)})
 	} else {
 		out, err := a.supervisorctl("stop", "dst-caves")
 		results = append(results, map[string]string{"action": "stop dst-caves", "output": out, "error": errString(err)})
@@ -1922,6 +1933,43 @@ func summarizeServices(services []serviceStatus) (string, string) {
 		return "starting", "进程正在启动，请稍后刷新"
 	}
 	return "stopped", "DST 进程未运行"
+}
+
+func (a *app) ensureDSTServerBinary() error {
+	path := dstServerBinaryPath()
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("DST 服务端文件尚未安装：缺少 %s。请先让镜像/容器完成 SteamCMD 下载 343050，然后再启动服务器", path)
+	}
+	if info.IsDir() || info.Mode()&0o111 == 0 {
+		return fmt.Errorf("DST 服务端文件不可执行：%s", path)
+	}
+	return nil
+}
+
+func dstServerBinaryPath() string {
+	gameDir := strings.TrimSpace(os.Getenv("DST_GAME_DIR"))
+	if gameDir == "" {
+		gameDir = "/opt/dst/game"
+	}
+	return filepath.Join(gameDir, "bin64", "dontstarve_dedicated_server_nullrenderer_x64")
+}
+
+func (a *app) currentSupervisorServices() ([]serviceStatus, error) {
+	out, err := a.supervisorctl("status")
+	if err != nil && strings.TrimSpace(out) == "" {
+		return nil, err
+	}
+	return parseSupervisorStatus(out), nil
+}
+
+func supervisorStartAction(name string, services []serviceStatus) string {
+	for _, service := range services {
+		if service.Name == name && strings.EqualFold(service.State, "running") {
+			return "restart"
+		}
+	}
+	return "start"
 }
 
 func (a *app) clusterDir() (string, error) {

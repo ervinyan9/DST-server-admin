@@ -94,3 +94,27 @@ func TestWorkshopDownloadTimeout(t *testing.T) {
 		t.Fatalf("workshopDownloadTimeout() = %s, want 150ms", got)
 	}
 }
+
+func TestSupervisorStartAction(t *testing.T) {
+	services := []serviceStatus{
+		{Name: "dst-master", State: "running"},
+		{Name: "dst-caves", State: "stopped"},
+	}
+	if got := supervisorStartAction("dst-master", services); got != "restart" {
+		t.Fatalf("master action = %q, want restart", got)
+	}
+	if got := supervisorStartAction("dst-caves", services); got != "start" {
+		t.Fatalf("caves action = %q, want start", got)
+	}
+	if got := supervisorStartAction("missing", services); got != "start" {
+		t.Fatalf("missing action = %q, want start", got)
+	}
+}
+
+func TestDSTServerBinaryPath(t *testing.T) {
+	t.Setenv("DST_GAME_DIR", "/tmp/dst-game")
+	want := "/tmp/dst-game/bin64/dontstarve_dedicated_server_nullrenderer_x64"
+	if got := dstServerBinaryPath(); got != want {
+		t.Fatalf("dstServerBinaryPath() = %q, want %q", got, want)
+	}
+}
