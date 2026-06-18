@@ -1018,6 +1018,7 @@ func (a *app) popularServerMods(limit int) ([]mod, error) {
 }
 
 func (a *app) searchWorkshopPaged(query string, sortName string, page int, pageSize int) ([]mod, bool, error) {
+	localMatches := a.searchLocalMods(query)
 	ids, err := a.scrapeWorkshopIDs(query, sortName, page)
 	if err != nil {
 		return nil, false, err
@@ -1028,6 +1029,7 @@ func (a *app) searchWorkshopPaged(query string, sortName string, page int, pageS
 	}
 	serverOnly := filterServerOnly(localizeMods(items), len(items))
 	sortMods(serverOnly, sortName)
+	serverOnly = mergeMods(localMatches, serverOnly)
 	start := (page - 1) * pageSize
 	if start >= len(serverOnly) {
 		return []mod{}, false, nil
@@ -1037,6 +1039,129 @@ func (a *app) searchWorkshopPaged(query string, sortName string, page int, pageS
 		end = len(serverOnly)
 	}
 	return serverOnly[start:end], end < len(serverOnly), nil
+}
+
+func (a *app) searchLocalMods(query string) []mod {
+	query = normalizeSearchQuery(query)
+	if query == "" {
+		return []mod{}
+	}
+	candidates := a.loadLocalSearchMods()
+	type scoredMod struct {
+		item  mod
+		score int
+	}
+	scored := make([]scoredMod, 0, len(candidates))
+	for _, item := range candidates {
+		if !item.Installable {
+			continue
+		}
+		score := localModSearchScore(item, query)
+		if score <= 0 {
+			continue
+		}
+		scored = append(scored, scoredMod{item: item, score: score})
+	}
+	sort.SliceStable(scored, func(i, j int) bool {
+		if scored[i].score != scored[j].score {
+			return scored[i].score > scored[j].score
+		}
+		if scored[i].item.TimeUpdated != scored[j].item.TimeUpdated {
+			return scored[i].item.TimeUpdated > scored[j].item.TimeUpdated
+		}
+		return scored[i].item.Subscriptions > scored[j].item.Subscriptions
+	})
+	out := make([]mod, 0, len(scored))
+	for _, item := range scored {
+		out = append(out, item.item)
+	}
+	return out
+}
+
+func (a *app) loadLocalSearchMods() []mod {
+	var out []mod
+	if s, err := a.loadStateFromMainFile(); err == nil {
+		out = append(out, s.Mods...)
+	}
+	seedPath := filepath.Join(a.root, "mods", "server-mods.json")
+	if s, err := loadModsFile(seedPath); err == nil {
+		out = append(out, s.Mods...)
+	}
+	return mergeMods(out)
+}
+
+func loadModsFile(path string) (state, error) {
+	var s state
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return s, err
+	}
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
+	if len(bytes.TrimSpace(data)) == 0 {
+		return state{Mods: []mod{}}, nil
+	}
+	if err := json.Unmarshal(data, &s); err != nil {
+		return s, err
+	}
+	if s.Mods == nil {
+		s.Mods = []mod{}
+	}
+	for i := range s.Mods {
+		s.Mods[i].ServerOnly = hasTag(s.Mods[i].Tags, "server_only_mod")
+		s.Mods[i].ClientRequired = hasTag(s.Mods[i].Tags, "all_clients_require_mod")
+		s.Mods[i].Installable = s.Mods[i].ServerOnly || s.Mods[i].ClientRequired
+	}
+	s.Mods = localizeMods(s.Mods)
+	return s, nil
+}
+
+func localModSearchScore(item mod, query string) int {
+	id := normalizeSearchQuery(item.ID)
+	title := normalizeSearchQuery(item.Title)
+	displayTitle := normalizeSearchQuery(item.DisplayTitle)
+	category := normalizeSearchQuery(item.Category)
+	description := normalizeSearchQuery(item.Description)
+	tags := normalizeSearchQuery(strings.Join(item.Tags, " "))
+	switch {
+	case id == query:
+		return 1100
+	case displayTitle == query:
+		return 1000
+	case title == query:
+		return 900
+	case strings.Contains(displayTitle, query):
+		return 800
+	case strings.Contains(title, query):
+		return 700
+	case strings.Contains(category, query):
+		return 500
+	case strings.Contains(tags, query):
+		return 300
+	case strings.Contains(description, query):
+		return 200
+	default:
+		return 0
+	}
+}
+
+func normalizeSearchQuery(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func mergeMods(groups ...[]mod) []mod {
+	seen := map[string]bool{}
+	out := []mod{}
+	for _, group := range groups {
+		for _, item := range group {
+			id := strings.TrimSpace(item.ID)
+			if id == "" || seen[id] {
+				continue
+			}
+			seen[id] = true
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 func sortMods(items []mod, sortName string) {
@@ -1206,10 +1331,20 @@ func filterServerOnly(items []mod, limit int) []mod {
 
 func localizeMods(items []mod) []mod {
 	for i := range items {
-		items[i].DisplayTitle = displayTitle(items[i].ID, items[i].Title)
+		items[i].DisplayTitle = localizedDisplayTitle(items[i])
 		items[i].Category = modCategory(items[i].ID, items[i].Title)
 	}
 	return items
+}
+
+func localizedDisplayTitle(item mod) string {
+	if value, ok := knownDisplayTitles[item.ID]; ok {
+		return value
+	}
+	if strings.TrimSpace(item.DisplayTitle) != "" {
+		return item.DisplayTitle
+	}
+	return displayTitle(item.ID, item.Title)
 }
 
 func dedupeByFeature(items []mod, limit int) []mod {
