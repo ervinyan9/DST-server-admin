@@ -5,48 +5,124 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>饥荒联机版管理端</title>
   <link rel="stylesheet" href="/static/app.css?v={{.AssetVersion}}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Tailwind 仅作为补充工具：禁用 preflight 重置以免破坏 app.css，
+    // 把 warm-wood 主题色注入到 utility class 命名空间，模板里直接用 bg-panel/text-ink 等。
+    tailwind.config = {
+      corePlugins: { preflight: false },
+      theme: {
+        extend: {
+          colors: {
+            bg: '#17120f',
+            'bg-deep': '#0f0b09',
+            panel: '#f1dfb7',
+            'panel-2': '#e4c98f',
+            'panel-soft': 'rgba(255, 247, 222, .68)',
+            ink: '#241812',
+            muted: '#725f49',
+            line: '#7f4a2d',
+            'line-soft': 'rgba(75, 42, 25, .22)',
+            wood: '#2c1710',
+            'wood-2': '#4b2a19',
+            red: '#9d2722',
+            'red-dark': '#6f1817',
+            amber: '#c67c28',
+            green: '#2f7b47',
+            cream: '#fff5d8',
+          },
+          boxShadow: {
+            warm: '0 18px 42px rgba(8, 4, 2, .34)',
+          },
+        },
+      },
+    };
+  </script>
   <script defer src="/static/app.js?v={{.AssetVersion}}"></script>
   <script defer src="/static/vendor/alpine-3.15.12.min.js?v={{.AssetVersion}}"></script>
 </head>
 <body>
-  <div class="app-shell" x-data="dstAdminApp({ appId: '{{.AppID}}' })" x-init="init()" x-cloak>
+  <div class="min-h-dvh" x-data="dstAdminApp({ appId: '{{.AppID}}' })" x-init="init()" x-cloak>
+    <!-- 登录 -->
     <template x-if="!authenticated">
-      <main class="login-screen">
-        <section class="login-card">
-          <div class="brand-mark">DST</div>
-          <p class="eyebrow">远程管理端</p>
-          <h1>EX 娇柔的饥荒之旅</h1>
-          <p class="login-copy">输入管理密钥后进入控制台。这里可以查看服务器状态、管理 MOD、保存配置并重启服务。</p>
-          <form class="login-form" @submit.prevent="login()">
-            <label>
-              <span>管理密钥</span>
-              <input type="password" x-model="loginKey" placeholder="请输入 API Key" autocomplete="current-password">
+      <main class="grid items-center min-h-dvh p-6">
+        <section class="mx-auto w-full max-w-[460px] bg-panel border-2 border-line rounded-lg shadow-warm p-8">
+          <div class="inline-flex items-center justify-center w-16 h-12 bg-red border-2 border-red-dark rounded-md text-cream font-black">DST</div>
+          <p class="mt-4 mb-1.5 text-xs font-extrabold tracking-[0.08em] text-red-dark">远程管理端</p>
+          <h1 class="m-0 text-[28px] leading-[1.2]">DST Waystone</h1>
+          <p class="text-muted leading-[1.55]">输入管理密钥后进入控制台。这里可以查看服务器状态、管理 MOD、保存配置并重启服务。</p>
+          <form class="grid gap-3.5 mt-6" @submit.prevent="login()">
+            <label class="grid gap-[7px]">
+              <span class="text-wood-2 text-xs font-extrabold">管理密钥</span>
+              <input type="password" x-model="loginKey" placeholder="请输入 API Key" autocomplete="current-password"
+                class="bg-[#fff7de] border border-[rgba(75,42,25,0.42)] rounded-md text-ink px-3 py-2.5 min-w-0 w-full">
             </label>
             <button class="btn btn-primary btn-wide" type="submit" :disabled="busy.auth === true || !loginKey.trim()">
               <span x-text="busy.auth ? '验证中' : '进入管理端'"></span>
             </button>
           </form>
-          <p class="form-error" x-show="authError" x-text="authError"></p>
+          <p class="mt-2 text-[13px] text-red-dark" x-show="authError" x-text="authError"></p>
         </section>
       </main>
     </template>
 
+    <!-- 已登录：admin 外壳 -->
     <template x-if="authenticated">
-      <div class="admin-layout">
-        <header class="admin-header">
-          <div class="header-title">
-            <div class="brand-mark small">DST</div>
+      <div class="min-h-dvh flex flex-col
+                  min-[1081px]:grid min-[1081px]:grid-cols-[200px_minmax(0,1fr)] min-[1081px]:grid-rows-[72px_minmax(0,1fr)]">
+
+        <!-- 侧栏 -->
+        <aside aria-label="主导航"
+          class="bg-[rgba(28,16,11,0.98)] text-cream border-b-2 border-amber/40
+                 flex flex-col
+                 min-[1081px]:row-span-2 min-[1081px]:col-start-1 min-[1081px]:row-start-1
+                 min-[1081px]:border-r-2 min-[1081px]:border-b-0
+                 min-[1081px]:sticky min-[1081px]:top-0 min-[1081px]:max-h-dvh min-[1081px]:overflow-hidden">
+          <div class="flex items-center gap-2.5 px-3.5 py-3 border-b border-cream/15">
+            <div class="flex-none inline-flex items-center justify-center w-[54px] h-[42px] bg-red border-2 border-red-dark rounded-md text-cream font-black">DST</div>
             <div>
-              <h1>饥荒联机版管理端</h1>
-              <p>AppID <span x-text="appId"></span> · Docker 专用服 · 香港节点</p>
+              <strong class="block text-cream text-sm">饥荒联机版</strong>
+              <span class="text-cream/60 text-xs">管理端</span>
             </div>
           </div>
-          <nav class="top-tabs" aria-label="主导航">
-            <button :class="tabClass('server')" @click="activeTab = 'server'">服务器</button>
-            <button :class="tabClass('mods')" @click="activeTab = 'mods'">MOD 管理</button>
-            <button :class="tabClass('players')" @click="activeTab = 'players'">玩家权限</button>
+          <nav class="flex flex-col gap-0.5 p-2 overflow-y-auto
+                      min-[1081px]:flex-1
+                      max-[1080px]:flex-row max-[1080px]:flex-nowrap max-[1080px]:gap-1.5 max-[1080px]:overflow-x-auto max-[1080px]:overflow-y-visible max-[1080px]:px-3 max-[1080px]:py-2">
+            <button :class="navClass('dashboard')" @click="activeTab = 'dashboard'">
+              <span :class="navIconClass('dashboard')" aria-hidden="true">●</span>
+              <span>控制台</span>
+            </button>
+            <button :class="navClass('settings')" @click="activeTab = 'settings'">
+              <span :class="navIconClass('settings')" aria-hidden="true">◆</span>
+              <span>设置</span>
+            </button>
+            <button :class="navClass('mods')" @click="activeTab = 'mods'">
+              <span :class="navIconClass('mods')" aria-hidden="true">▣</span>
+              <span>MOD 管理</span>
+            </button>
+            <button :class="navClass('players')" @click="activeTab = 'players'">
+              <span :class="navIconClass('players')" aria-hidden="true">◉</span>
+              <span>玩家权限</span>
+            </button>
           </nav>
-          <div class="header-actions">
+          <div class="grid gap-0.5 px-3.5 py-3.5 border-t border-cream/15 max-[1080px]:hidden">
+            <p class="m-0 text-cream/55 text-xs">AppID <span x-text="appId"></span></p>
+            <p class="m-0 text-cream/55 text-xs">dst-waystone 单镜像</p>
+          </div>
+        </aside>
+
+        <!-- 顶栏 -->
+        <header class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4
+                       min-h-[72px] px-6 py-2.5
+                       bg-wood/[0.96] border-b-2 border-amber/50 text-cream
+                       sticky top-0 z-20
+                       min-[1081px]:col-start-2 min-[1081px]:row-start-1
+                       max-[1080px]:px-4">
+          <div class="grid gap-0.5 min-w-0">
+            <p class="m-0 text-xs font-extrabold tracking-[0.08em] text-cream/60" x-text="currentTabEyebrow()"></p>
+            <h1 class="m-0 text-xl leading-[1.2] text-cream" x-text="currentTabTitle()"></h1>
+          </div>
+          <div class="flex items-center gap-2 max-[1080px]:justify-end max-[1080px]:overflow-x-auto">
             <button class="btn btn-ghost" @click="refreshAll()" :disabled="busy.refresh === true">
               <span x-text="busy.refresh === true ? '刷新中' : '刷新'"></span>
             </button>
@@ -54,114 +130,92 @@
           </div>
         </header>
 
-        <main class="admin-main">
-          <section x-show="activeTab === 'server'" class="view-stack">
-            <div class="dashboard-grid">
-              <section class="panel hero-panel">
-                <div class="panel-title-row">
-                  <div>
-                    <p class="eyebrow">服务器状态</p>
-                    <h2 x-text="serverStatusLabel()"></h2>
-                  </div>
-                  <span :class="statusBadgeClass(status.status)" x-text="status.status || 'unknown'"></span>
-                </div>
-                <p class="muted" x-text="status.message || '尚未读取服务器状态'"></p>
-                <div class="metric-grid">
-                  <div class="metric-card">
-                    <span>最后检查</span>
-                    <strong x-text="status.checked_at || '未检查'"></strong>
-                  </div>
-                  <div class="metric-card">
-                    <span>已安装 MOD</span>
-                    <strong x-text="enabledMods().length + ' 个启用'"></strong>
-                  </div>
-                  <div class="metric-card">
-                    <span>玩家记录</span>
-                    <strong x-text="players.length + ' 人'"></strong>
-                  </div>
-                </div>
-                <div class="action-row">
-                  <button class="btn btn-primary" @click="saveToServer()" :disabled="busy.save === true">
-                    <span x-text="busy.save === true ? '保存中' : '保存配置'"></span>
-                  </button>
-                  <button class="btn btn-danger" @click="restartServer()" :disabled="busy.restart === true">
-                    <span x-text="busy.restart === true ? '重启中' : '重启服务器'"></span>
-                  </button>
-                  <button class="btn btn-secondary" @click="loadServerStatus(false)" :disabled="busy.status === true">
-                    <span x-text="busy.status === true ? '读取中' : '刷新状态'"></span>
-                  </button>
-                </div>
-              </section>
+        <!-- 主区 -->
+        <main class="mx-auto w-full max-w-[1480px] px-6 py-[18px]
+                     min-[1081px]:col-start-2 min-[1081px]:row-start-2
+                     max-[1080px]:px-4 max-[1080px]:py-3.5
+                     max-[720px]:px-2.5 max-[720px]:py-2.5">
 
-              <section class="panel settings-panel">
-                <div class="panel-title-row">
-                  <div>
-                    <p class="eyebrow">基础设置</p>
-                    <h2>世界与连接信息</h2>
-                  </div>
-                  <button class="btn btn-secondary" @click="saveSettings()" :disabled="busy.settings === true">
-                    <span x-text="busy.settings === true ? '保存中' : '仅保存草稿'"></span>
-                  </button>
-                </div>
-                <div class="form-grid">
-                  <label>
-                    <span>服务器名称</span>
-                    <input x-model="settings.server_name" placeholder="EX 娇柔的饥荒之旅">
-                  </label>
-                  <label>
-                    <span>服务器密码</span>
-                    <input x-model="settings.server_password" placeholder="717815">
-                  </label>
-                  <label>
-                    <span>游戏模式</span>
-                    <select x-model="settings.game_mode">
-                      <option value="survival">生存模式</option>
-                      <option value="endless">无尽模式</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>最大人数</span>
-                    <input type="number" min="1" max="64" x-model.number="settings.max_players">
-                  </label>
-                </div>
-                <div class="toggle-grid">
-                  <label><input type="checkbox" x-model="settings.pause_when_empty"> 空服暂停</label>
-                  <label><input type="checkbox" x-model="settings.enable_caves"> 启用洞穴</label>
-                  <label><input type="checkbox" x-model="settings.pvp"> 开启 PVP</label>
-                </div>
-              </section>
-            </div>
+          <!-- 控制台 -->
+          <section x-show="activeTab === 'dashboard'" class="grid gap-3.5">
 
-            <section class="panel">
-              <div class="panel-title-row">
+            <!-- 主状态卡 -->
+            <section class="bg-[linear-gradient(135deg,rgba(255,245,216,0.72),rgba(228,201,143,0.95))] border-2 border-line rounded-lg shadow-warm p-4 min-w-0 overflow-hidden">
+              <div class="flex items-start justify-between gap-3 mb-3">
                 <div>
-                  <p class="eyebrow">容器服务</p>
-                  <h2>Docker Compose 状态</h2>
+                  <p class="m-0 mb-1.5 text-xs font-extrabold tracking-[0.08em] text-red-dark">服务器状态</p>
+                  <h2 class="m-0 text-lg leading-[1.2]" x-text="serverStatusLabel()"></h2>
+                </div>
+                <span :class="statusBadgeClass(status.status)" x-text="status.status || 'unknown'"></span>
+              </div>
+              <p class="text-muted leading-[1.55]" x-text="status.message || '尚未读取服务器状态'"></p>
+
+              <div class="grid grid-cols-3 gap-2.5 my-3.5 max-[720px]:grid-cols-1">
+                <div class="bg-panel-soft border border-line-soft rounded-lg p-3">
+                  <span class="block text-muted text-xs mb-1.5">最后检查</span>
+                  <strong class="block text-ink text-base" x-text="status.checked_at || '未检查'"></strong>
+                </div>
+                <div class="bg-panel-soft border border-line-soft rounded-lg p-3">
+                  <span class="block text-muted text-xs mb-1.5">已安装 MOD</span>
+                  <strong class="block text-ink text-base" x-text="enabledMods().length + ' 个启用'"></strong>
+                </div>
+                <div class="bg-panel-soft border border-line-soft rounded-lg p-3">
+                  <span class="block text-muted text-xs mb-1.5">玩家记录</span>
+                  <strong class="block text-ink text-base" x-text="players.length + ' 人'"></strong>
                 </div>
               </div>
-              <div class="service-grid">
-                <template x-for="service in status.services" :key="service.name + service.service">
-                  <article class="service-card">
-                    <div class="service-head">
-                      <strong x-text="service.service || service.name || 'DST 服务'"></strong>
-                      <span :class="statusBadgeClass(service.state)" x-text="service.health || service.state || 'unknown'"></span>
-                    </div>
-                    <dl>
-                      <div><dt>容器</dt><dd x-text="service.name || '-'"></dd></div>
-                      <div><dt>运行时长</dt><dd x-text="service.running_for || '-'"></dd></div>
-                      <div><dt>重启次数</dt><dd x-text="service.restart_count || '0'"></dd></div>
-                    </dl>
-                  </article>
-                </template>
-                <div class="empty-state" x-show="!status.services || !status.services.length">还没有读取到容器服务。</div>
+
+              <div class="flex items-center gap-2 max-[720px]:flex-col max-[720px]:items-stretch">
+                <button class="btn btn-danger" @click="restartServer()" :disabled="busy.restart === true">
+                  <span x-text="busy.restart === true ? '重启中' : '重启服务器'"></span>
+                </button>
+                <button class="btn btn-secondary" @click="loadServerStatus(false)" :disabled="busy.status === true">
+                  <span x-text="busy.status === true ? '读取中' : '刷新状态'"></span>
+                </button>
               </div>
             </section>
 
-            <section class="panel logs-panel">
-              <div class="panel-title-row">
+            <!-- 进程卡 -->
+            <section class="bg-panel border-2 border-line rounded-lg shadow-warm p-4 min-w-0 overflow-hidden">
+              <div class="flex items-start justify-between gap-3 mb-3">
                 <div>
-                  <p class="eyebrow">最近日志</p>
-                  <h2>启动与 MOD 下载记录</h2>
+                  <p class="m-0 mb-1.5 text-xs font-extrabold tracking-[0.08em] text-red-dark">进程状态</p>
+                  <h2 class="m-0 text-lg leading-[1.2]">supervisor 管理的进程</h2>
+                </div>
+              </div>
+              <div class="grid gap-2.5 grid-cols-[repeat(auto-fit,minmax(230px,1fr))]">
+                <template x-for="service in status.services" :key="service.name + service.service">
+                  <article class="bg-panel-soft border border-line-soft rounded-lg p-3">
+                    <div class="flex items-center justify-between gap-2 mb-2.5">
+                      <strong x-text="service.service || service.name || 'DST 服务'"></strong>
+                      <span :class="statusBadgeClass(service.state)" x-text="service.state || 'unknown'"></span>
+                    </div>
+                    <dl class="grid gap-2 m-0">
+                      <div>
+                        <dt class="block text-muted text-xs mb-1.5">进程</dt>
+                        <dd class="m-0 break-words" x-text="service.name || '-'"></dd>
+                      </div>
+                      <div>
+                        <dt class="block text-muted text-xs mb-1.5">运行时长</dt>
+                        <dd class="m-0 break-words" x-text="service.running_for || '-'"></dd>
+                      </div>
+                      <div>
+                        <dt class="block text-muted text-xs mb-1.5">状态描述</dt>
+                        <dd class="m-0 break-words" x-text="service.status || '-'"></dd>
+                      </div>
+                    </dl>
+                  </article>
+                </template>
+                <div class="text-muted text-sm p-6 text-center" x-show="!status.services || !status.services.length">还没有读取到进程信息。</div>
+              </div>
+            </section>
+
+            <!-- 日志卡 -->
+            <section class="bg-panel border-2 border-line rounded-lg shadow-warm p-4 min-w-0 overflow-hidden min-h-[280px]">
+              <div class="flex items-start justify-between gap-3 mb-3 max-[720px]:flex-col max-[720px]:items-stretch">
+                <div>
+                  <p class="m-0 mb-1.5 text-xs font-extrabold tracking-[0.08em] text-red-dark">最近日志</p>
+                  <h2 class="m-0 text-lg leading-[1.2]">启动与 MOD 下载记录</h2>
                 </div>
                 <button class="btn btn-secondary" @click="loadServerStatus(false)" :disabled="busy.status === true">刷新日志</button>
               </div>
@@ -169,19 +223,97 @@
             </section>
           </section>
 
-          <section x-show="activeTab === 'mods'" class="view-stack">
-            <div class="mods-layout">
-              <section class="panel market-panel">
-                <div class="panel-title-row">
+          <!-- 设置 -->
+          <section x-show="activeTab === 'settings'" class="grid gap-3.5">
+            <section class="bg-panel border-2 border-line rounded-lg shadow-warm p-4 min-w-0 overflow-hidden">
+              <div class="flex items-start justify-between gap-3 mb-3">
+                <div>
+                  <p class="m-0 mb-1.5 text-xs font-extrabold tracking-[0.08em] text-red-dark">基础设置</p>
+                  <h2 class="m-0 text-lg leading-[1.2]">世界与连接信息</h2>
+                </div>
+              </div>
+              <div class="grid gap-2.5 grid-cols-2 max-[720px]:grid-cols-1">
+                <label class="grid gap-[7px]">
+                  <span class="text-wood-2 text-xs font-extrabold">服务器名称</span>
+                  <input x-model="settings.server_name" placeholder="例如 DST Waystone"
+                    class="bg-[#fff7de] border border-[rgba(75,42,25,0.42)] rounded-md text-ink px-3 py-2.5 min-w-0 w-full">
+                </label>
+                <label class="grid gap-[7px]">
+                  <span class="text-wood-2 text-xs font-extrabold">服务器密码</span>
+                  <input x-model="settings.server_password" placeholder="留空表示无密码"
+                    class="bg-[#fff7de] border border-[rgba(75,42,25,0.42)] rounded-md text-ink px-3 py-2.5 min-w-0 w-full">
+                </label>
+                <label class="grid gap-[7px]">
+                  <span class="text-wood-2 text-xs font-extrabold">游戏模式</span>
+                  <select x-model="settings.game_mode"
+                    class="bg-[#fff7de] border border-[rgba(75,42,25,0.42)] rounded-md text-ink px-3 py-2.5 min-w-0 w-full cursor-pointer">
+                    <option value="survival">生存模式</option>
+                    <option value="endless">无尽模式</option>
+                  </select>
+                </label>
+                <label class="grid gap-[7px]">
+                  <span class="text-wood-2 text-xs font-extrabold">最大人数</span>
+                  <input type="number" min="1" max="64" x-model.number="settings.max_players"
+                    class="bg-[#fff7de] border border-[rgba(75,42,25,0.42)] rounded-md text-ink px-3 py-2.5 min-w-0 w-full">
+                </label>
+              </div>
+              <div class="flex flex-wrap gap-3.5 mt-3">
+                <label class="flex items-center gap-2"><input type="checkbox" x-model="settings.pause_when_empty" class="accent-red"> 空服暂停</label>
+                <label class="flex items-center gap-2"><input type="checkbox" x-model="settings.enable_caves" class="accent-red"> 启用洞穴</label>
+                <label class="flex items-center gap-2"><input type="checkbox" x-model="settings.pvp" class="accent-red"> 开启 PVP</label>
+              </div>
+              <div class="flex items-center gap-2 mt-3 max-[720px]:flex-col max-[720px]:items-stretch">
+                <button class="btn btn-primary" @click="saveSettings()" :disabled="busy.settings === true">
+                  <span x-text="busy.settings === true ? '保存中' : '保存配置'"></span>
+                </button>
+              </div>
+              <p class="mt-2 text-muted text-xs leading-[1.55]">保存配置会同步写入 cluster.ini、Master/Caves server.ini 和 MOD 列表，需重启 DST 才生效。</p>
+            </section>
+
+            <section class="bg-panel border-2 border-line rounded-lg shadow-warm p-4 min-w-0 overflow-hidden">
+              <div class="flex items-start justify-between gap-3 mb-3">
+                <div>
+                  <p class="m-0 mb-1.5 text-xs font-extrabold tracking-[0.08em] text-red-dark">Klei Cluster Token</p>
+                  <h2 class="m-0 text-lg leading-[1.2]">设置后才能启动 DST 进程</h2>
+                </div>
+              </div>
+              <p class="text-muted text-xs leading-[1.55]">从 <a href="https://accounts.klei.com/account/game/servers?game=DontStarveTogether" target="_blank" rel="noreferrer" class="underline decoration-line/40 underline-offset-2">Klei 账号页</a> 复制 Server Token，写入后由管理端保存到 /data/cluster/Cluster_1/cluster_token.txt（权限 0600，不会回显）。</p>
+              <div class="grid gap-2.5 grid-cols-1 mt-3">
+                <label class="grid gap-[7px]">
+                  <span class="text-wood-2 text-xs font-extrabold">Cluster Token</span>
+                  <textarea x-model="clusterToken" rows="3" placeholder="pds-g^KU_xxx^..."
+                    class="bg-[#fff7de] border border-[rgba(75,42,25,0.42)] rounded-md text-ink px-3 py-2.5 min-w-0 w-full font-mono text-[13px] resize-y"></textarea>
+                </label>
+              </div>
+              <div class="flex items-center gap-2 mt-3 max-[720px]:flex-col max-[720px]:items-stretch">
+                <button class="btn btn-primary" @click="saveClusterToken()" :disabled="busy.token === true || !clusterToken.trim()">
+                  <span x-text="busy.token === true ? '保存中' : '保存 token'"></span>
+                </button>
+              </div>
+            </section>
+          </section>
+
+          <!-- MOD 管理 -->
+          <section x-show="activeTab === 'mods'" class="grid gap-3.5">
+            <div class="grid items-start gap-3.5 grid-cols-[minmax(0,1.1fr)_minmax(380px,0.9fr)] max-[1080px]:grid-cols-1">
+
+              <!-- 市场 -->
+              <section class="bg-panel border-2 border-line rounded-lg shadow-warm p-4 min-w-0 overflow-hidden
+                              grid grid-rows-[auto_auto_auto_minmax(0,1fr)]
+                              h-[calc(100dvh-116px)] min-h-[620px]
+                              max-[1080px]:h-auto max-[1080px]:min-h-0 max-[1080px]:grid-rows-none">
+                <div class="flex items-start justify-between gap-3 mb-3">
                   <div>
-                    <p class="eyebrow">MOD 市场</p>
-                    <h2>搜索和安装</h2>
+                    <p class="m-0 mb-1.5 text-xs font-extrabold tracking-[0.08em] text-red-dark">MOD 市场</p>
+                    <h2 class="m-0 text-lg leading-[1.2]">搜索和安装</h2>
                   </div>
                   <button class="btn btn-secondary" @click="loadPopular()" :disabled="busy.popular === true">热门推荐</button>
                 </div>
-                <div class="toolbar">
-                  <input x-model="search.query" @keydown.enter="runSearch(true)" placeholder="输入 MOD 名称或 Workshop ID">
-                  <select x-model="search.sort" @change="runSearch(true)">
+                <div class="flex items-stretch gap-2 max-[720px]:flex-col">
+                  <input x-model="search.query" @keydown.enter="runSearch(true)" placeholder="输入 MOD 名称或 Workshop ID"
+                    class="bg-[#fff7de] border border-[rgba(75,42,25,0.42)] rounded-md text-ink px-3 py-2.5 min-w-0 w-full flex-1">
+                  <select x-model="search.sort" @change="runSearch(true)"
+                    class="bg-[#fff7de] border border-[rgba(75,42,25,0.42)] rounded-md text-ink px-3 py-2.5 min-w-0 max-w-[160px] cursor-pointer max-[720px]:max-w-none">
                     <option value="timeupdated">优先最新</option>
                     <option value="trend">近期趋势</option>
                     <option value="totaluniquesubscribers">订阅最多</option>
@@ -191,89 +323,100 @@
                     <span x-text="busy.search === true ? '搜索中' : '搜索'"></span>
                   </button>
                 </div>
-                <div class="helper-row">
+                <div class="flex items-center justify-between gap-2 my-2.5 text-muted text-xs max-[720px]:flex-col max-[720px]:items-stretch">
                   <span x-text="searchStatus"></span>
-                  <div class="pager">
-                    <button class="btn btn-ghost" @click="previousPage()" :disabled="search.page <= 1 || busy.search === true">上一页</button>
+                  <div class="flex items-center gap-2">
+                    <button class="btn btn-ghost-warm" @click="previousPage()" :disabled="search.page <= 1 || busy.search === true">上一页</button>
                     <span>第 <strong x-text="search.page"></strong> 页</span>
-                    <button class="btn btn-ghost" @click="nextPage()" :disabled="!search.hasMore || busy.search === true">下一页</button>
+                    <button class="btn btn-ghost-warm" @click="nextPage()" :disabled="!search.hasMore || busy.search === true">下一页</button>
                   </div>
                 </div>
-                <div class="market-scroll">
+                <div class="grid gap-2.5 min-h-0 overflow-auto pr-1">
                   <template x-for="item in search.results" :key="item.id">
-                    <article class="mod-card">
-                      <img :src="item.preview || '/static/mod-placeholder.svg'" alt="">
-                      <div class="mod-body">
-                        <div class="mod-title-row">
-                          <h3 x-text="item.display_title || item.title || ('Workshop ' + item.id)"></h3>
+                    <article class="grid grid-cols-[112px_minmax(0,1fr)_138px] min-h-[196px] overflow-hidden
+                                    bg-panel-soft border border-line-soft rounded-lg
+                                    max-[720px]:grid-cols-1">
+                      <img :src="item.preview || '/static/mod-placeholder.svg'" alt=""
+                        class="w-[112px] h-full min-h-[196px] object-cover bg-wood/20
+                               max-[720px]:w-full max-[720px]:h-[150px] max-[720px]:min-h-[150px]">
+                      <div class="grid grid-rows-[auto_auto_auto_minmax(0,auto)_auto_auto] min-w-0 p-3">
+                        <div class="flex items-start justify-between gap-2">
+                          <h3 class="m-0 text-[15px] leading-[1.35] break-words" x-text="item.display_title || item.title || ('Workshop ' + item.id)"></h3>
                         </div>
-                        <p class="muted small" x-text="item.title"></p>
-                        <div class="tag-row">
-                          <span class="tag" x-text="item.category || '其他'"></span>
-                          <span class="tag warn" x-show="item.client_required">客户端也要安装</span>
-                          <span class="tag ok" x-show="item.server_only">服务端 MOD</span>
+                        <p class="text-muted text-xs leading-[1.55] m-0" x-text="item.title"></p>
+                        <div class="flex flex-wrap gap-1.5 my-2">
+                          <span class="inline-flex items-center min-h-6 rounded-full border px-[9px] py-[3px] text-xs font-extrabold whitespace-nowrap bg-wood/[0.08] border-wood/[0.24] text-wood" x-text="item.category || '其他'"></span>
+                          <span class="inline-flex items-center min-h-6 rounded-full border px-[9px] py-[3px] text-xs font-extrabold whitespace-nowrap bg-amber/[0.17] border-amber/[0.45] text-[#704313]" x-show="item.client_required">客户端也要安装</span>
+                          <span class="inline-flex items-center min-h-6 rounded-full border px-[9px] py-[3px] text-xs font-extrabold whitespace-nowrap bg-green/[0.13] border-green/[0.44] text-[#1f5d35]" x-show="item.server_only">服务端 MOD</span>
                         </div>
-                        <p class="mod-desc" x-text="item.description || '没有简介'"></p>
-                        <div class="mod-meta">
+                        <p class="text-muted text-xs leading-[1.45] m-0 mb-2 overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]" x-text="item.description || '没有简介'"></p>
+                        <div class="flex flex-wrap gap-2.5 mb-2.5 text-muted text-xs">
                           <span x-text="'订阅 ' + formatNumber(item.subscriptions)"></span>
                           <span x-text="'更新 ' + formatDate(item.time_updated)"></span>
                         </div>
-                        <p class="form-error" x-show="item.blocked_reason" x-text="item.blocked_reason"></p>
+                        <p class="mt-2 text-[13px] text-red-dark" x-show="item.blocked_reason" x-text="item.blocked_reason"></p>
                       </div>
-                      <aside class="mod-actions">
-                        <code x-text="item.id"></code>
-                        <button class="btn btn-primary" @click="addMod(item.id)" :disabled="!!item.blocked_reason || isInstalled(item.id) || busy['add:' + item.id] === true">
+                      <aside class="flex flex-col items-stretch justify-center gap-2 p-3 min-h-[196px]
+                                    bg-wood/[0.05] border-l border-line-soft
+                                    max-[720px]:border-l-0 max-[720px]:border-t max-[720px]:min-h-0 max-[720px]:grid max-[720px]:grid-cols-1">
+                        <code class="block self-stretch text-center bg-wood/10 border border-wood/20 rounded text-wood font-mono text-xs px-1.5 py-0.5" x-text="item.id"></code>
+                        <button class="btn btn-primary !min-h-[34px] !w-full" @click="addMod(item.id)" :disabled="!!item.blocked_reason || isInstalled(item.id) || busy['add:' + item.id] === true">
                           <span x-text="isInstalled(item.id) ? '已在右侧' : (busy['add:' + item.id] === true ? '添加中' : '添加到右侧')"></span>
                         </button>
-                        <button class="btn btn-secondary" @click="downloadMod(item.id)" :disabled="busy['download:' + item.id] === true">
+                        <button class="btn btn-secondary !min-h-[34px] !w-full" @click="downloadMod(item.id)" :disabled="busy['download:' + item.id] === true">
                           <span x-text="busy['download:' + item.id] === true ? '下载中' : '下载文件'"></span>
                         </button>
-                        <a class="btn btn-ghost" :href="item.file_url" target="_blank" rel="noreferrer">Workshop</a>
+                        <a class="btn btn-ghost-warm !min-h-[34px] !w-full" :href="item.file_url" target="_blank" rel="noreferrer">Workshop</a>
                       </aside>
                     </article>
                   </template>
-                  <div class="empty-state" x-show="!search.results.length && busy.search !== true">没有搜索结果。可以试试输入 Workshop ID。</div>
+                  <div class="text-muted text-sm p-6 text-center" x-show="!search.results.length && busy.search !== true">没有搜索结果。可以试试输入 Workshop ID。</div>
                 </div>
               </section>
 
-              <section class="panel installed-panel">
-                <div class="panel-title-row">
+              <!-- 已安装 -->
+              <section class="bg-panel border-2 border-line rounded-lg shadow-warm p-4 min-w-0 overflow-hidden
+                              grid grid-rows-[auto_auto_minmax(0,1fr)_auto]
+                              h-[calc(100dvh-116px)] min-h-[620px]
+                              max-[1080px]:h-auto max-[1080px]:min-h-0 max-[1080px]:grid-rows-none">
+                <div class="flex items-start justify-between gap-3 mb-3">
                   <div>
-                    <p class="eyebrow">已安装 MOD</p>
-                    <h2>启用、下载与诊断</h2>
+                    <p class="m-0 mb-1.5 text-xs font-extrabold tracking-[0.08em] text-red-dark">已安装 MOD</p>
+                    <h2 class="m-0 text-lg leading-[1.2]">启用、下载与诊断</h2>
                   </div>
                   <button class="btn btn-secondary" @click="loadDiagnostics()" :disabled="busy.diagnostics === true">诊断</button>
                 </div>
-                <div class="manual-add">
-                  <input x-model="manualId" @keydown.enter="addManualMod()" placeholder="直接输入 Workshop ID">
+                <div class="flex items-center gap-2 mb-2.5 max-[720px]:flex-col max-[720px]:items-stretch">
+                  <input x-model="manualId" @keydown.enter="addManualMod()" placeholder="直接输入 Workshop ID"
+                    class="bg-[#fff7de] border border-[rgba(75,42,25,0.42)] rounded-md text-ink px-3 py-2.5 min-w-0 w-full flex-1">
                   <button class="btn btn-primary" @click="addManualMod()" :disabled="!manualId">添加</button>
                 </div>
-                <div class="installed-scroll">
+                <div class="grid gap-2.5 mt-2.5 min-h-0 overflow-auto pr-1">
                   <template x-for="item in mods" :key="item.id">
-                    <article class="installed-row">
-                      <label class="switch-line">
-                        <input type="checkbox" :checked="item.enabled" @change="toggleMod(item.id, $event.target.checked)">
-                        <span>
+                    <article class="bg-panel-soft border border-line-soft rounded-lg p-3">
+                      <label class="flex items-center justify-between gap-2">
+                        <input type="checkbox" :checked="item.enabled" @change="toggleMod(item.id, $event.target.checked)" class="accent-red">
+                        <span class="grid flex-1 gap-1">
                           <strong x-text="item.display_title || item.title || ('Workshop ' + item.id)"></strong>
-                          <small x-text="item.client_required ? '所有客户端也必须安装' : '服务端安装即可'"></small>
+                          <small class="text-muted" x-text="item.client_required ? '所有客户端也必须安装' : '服务端安装即可'"></small>
                         </span>
                       </label>
-                      <div class="installed-actions">
-                        <code x-text="item.id"></code>
+                      <div class="flex flex-wrap items-center justify-end gap-2 mt-2.5 max-[720px]:flex-col max-[720px]:items-stretch">
+                        <code class="bg-wood/10 border border-wood/20 rounded text-wood font-mono text-xs px-1.5 py-0.5" x-text="item.id"></code>
                         <button class="btn btn-secondary" @click="downloadMod(item.id)" :disabled="busy['download:' + item.id] === true">
                           <span x-text="busy['download:' + item.id] === true ? '下载中' : '下载'"></span>
                         </button>
                         <button class="btn btn-danger" @click="removeMod(item.id)" :disabled="busy['remove:' + item.id] === true">移除</button>
                       </div>
                       <template x-if="diagnostics[item.id]">
-                        <div class="diagnostic-box">
-                          <div class="diag-grid">
+                        <div class="bg-wood/[0.06] rounded-lg mt-2.5 p-2.5">
+                          <div class="flex flex-wrap gap-1.5">
                             <span :class="diagClass(diagnostics[item.id].configured_setup)">下载配置</span>
                             <span :class="diagClass(diagnostics[item.id].configured_override)">启用配置</span>
                             <span :class="diagClass(diagnostics[item.id].downloaded)">文件存在</span>
                             <span :class="diagClass(diagnostics[item.id].loaded_in_logs)">日志加载</span>
                           </div>
-                          <ul x-show="diagnostics[item.id].problems && diagnostics[item.id].problems.length">
+                          <ul class="text-red-dark text-xs mt-2 mb-0 pl-4.5 list-disc" x-show="diagnostics[item.id].problems && diagnostics[item.id].problems.length">
                             <template x-for="problem in diagnostics[item.id].problems" :key="problem">
                               <li x-text="problem"></li>
                             </template>
@@ -282,53 +425,58 @@
                       </template>
                     </article>
                   </template>
-                  <div class="empty-state" x-show="!mods.length">还没有安装 MOD。</div>
+                  <div class="text-muted text-sm p-6 text-center" x-show="!mods.length">还没有安装 MOD。</div>
                 </div>
-                <div class="action-row">
-                  <button class="btn btn-primary" @click="saveToServer()" :disabled="busy.save === true">保存到服务器</button>
-                  <button class="btn btn-secondary" @click="generateConfig()" :disabled="busy.generate === true">仅生成本地配置</button>
-                </div>
+                <p class="mt-2 text-muted text-xs leading-[1.55]">添加 / 移除 / 启停后会立即写入 /data/cluster/Cluster_1，重启服务器即可生效。</p>
               </section>
             </div>
           </section>
 
-          <section x-show="activeTab === 'players'" class="view-stack">
-            <section class="panel">
-              <div class="panel-title-row">
+          <!-- 玩家权限 -->
+          <section x-show="activeTab === 'players'" class="grid gap-3.5">
+            <section class="bg-panel border-2 border-line rounded-lg shadow-warm p-4 min-w-0 overflow-hidden">
+              <div class="flex items-start justify-between gap-3 mb-3">
                 <div>
-                  <p class="eyebrow">玩家权限</p>
-                  <h2>管理员列表</h2>
+                  <p class="m-0 mb-1.5 text-xs font-extrabold tracking-[0.08em] text-red-dark">玩家权限</p>
+                  <h2 class="m-0 text-lg leading-[1.2]">管理员列表</h2>
                 </div>
                 <button class="btn btn-secondary" @click="loadPlayers()" :disabled="busy.players === true">刷新玩家</button>
               </div>
-              <div class="manual-add">
-                <input x-model="adminKuid" @keydown.enter="addAdminByKuid()" placeholder="Klei ID，例如 KU_AvFFQ7Ox">
+              <div class="flex items-center gap-2 mb-2.5 max-[720px]:flex-col max-[720px]:items-stretch">
+                <input x-model="adminKuid" @keydown.enter="addAdminByKuid()" placeholder="Klei ID，例如 KU_xxxxxxxx"
+                  class="bg-[#fff7de] border border-[rgba(75,42,25,0.42)] rounded-md text-ink px-3 py-2.5 min-w-0 w-full flex-1">
                 <button class="btn btn-primary" @click="addAdminByKuid()" :disabled="!adminKuid">设为管理员</button>
               </div>
-              <div class="table-scroll">
-                <table>
+              <div class="overflow-auto pr-1 max-h-[calc(100dvh-250px)]">
+                <table class="w-full min-w-[760px] border-collapse">
                   <thead>
                     <tr>
-                      <th>玩家</th>
-                      <th>Klei ID</th>
-                      <th>状态</th>
-                      <th>操作</th>
+                      <th class="text-left align-middle p-2.5 text-muted text-xs bg-panel border-b border-line-soft sticky top-0 z-[1]">玩家</th>
+                      <th class="text-left align-middle p-2.5 text-muted text-xs bg-panel border-b border-line-soft sticky top-0 z-[1]">Klei ID</th>
+                      <th class="text-left align-middle p-2.5 text-muted text-xs bg-panel border-b border-line-soft sticky top-0 z-[1]">状态</th>
+                      <th class="text-left align-middle p-2.5 text-muted text-xs bg-panel border-b border-line-soft sticky top-0 z-[1]">操作</th>
                     </tr>
                   </thead>
                   <tbody>
                     <template x-for="player in players" :key="player.kuid">
                       <tr>
-                        <td x-text="player.name || '未知玩家'"></td>
-                        <td><code x-text="player.kuid"></code><div class="muted small" x-text="player.last_seen"></div></td>
-                        <td><span :class="player.admin ? 'tag ok' : 'tag'" x-text="player.admin ? '管理员' : '普通玩家'"></span></td>
-                        <td>
+                        <td class="text-left align-middle p-2.5 border-b border-line-soft" x-text="player.name || '未知玩家'"></td>
+                        <td class="text-left align-middle p-2.5 border-b border-line-soft">
+                          <code class="bg-wood/10 border border-wood/20 rounded text-wood font-mono text-xs px-1.5 py-0.5" x-text="player.kuid"></code>
+                          <div class="text-muted text-xs" x-text="player.last_seen"></div>
+                        </td>
+                        <td class="text-left align-middle p-2.5 border-b border-line-soft">
+                          <span x-show="player.admin" class="inline-flex items-center min-h-6 rounded-full border px-[9px] py-[3px] text-xs font-extrabold whitespace-nowrap bg-green/[0.13] border-green/[0.44] text-[#1f5d35]">管理员</span>
+                          <span x-show="!player.admin" class="inline-flex items-center min-h-6 rounded-full border px-[9px] py-[3px] text-xs font-extrabold whitespace-nowrap bg-wood/[0.08] border-wood/[0.24] text-wood">普通玩家</span>
+                        </td>
+                        <td class="text-left align-middle p-2.5 border-b border-line-soft">
                           <button class="btn btn-secondary" x-show="!player.admin" @click="setAdmin(player.kuid, true)">设为管理员</button>
                           <button class="btn btn-danger" x-show="player.admin" @click="setAdmin(player.kuid, false)">移除权限</button>
                         </td>
                       </tr>
                     </template>
                     <tr x-show="!players.length">
-                      <td colspan="4" class="empty-cell">还没有从日志中发现玩家。</td>
+                      <td colspan="4" class="text-muted text-sm p-6 text-center">还没有从日志中发现玩家。</td>
                     </tr>
                   </tbody>
                 </table>
@@ -337,9 +485,15 @@
           </section>
         </main>
 
-        <div class="toast-stack" aria-live="polite">
+        <!-- Toast -->
+        <div class="fixed bottom-[18px] right-[18px] z-50 grid gap-2 max-w-[min(420px,calc(100vw-32px))]" aria-live="polite">
           <template x-for="toast in toasts" :key="toast.id">
-            <div :class="'toast ' + toast.type" x-text="toast.message"></div>
+            <div x-text="toast.message"
+              :class="'bg-panel border-2 rounded-lg shadow-warm text-ink text-sm px-3.5 py-3 ' + (
+                toast.type === 'success' ? 'border-green' :
+                toast.type === 'warning' ? 'border-amber' :
+                toast.type === 'error' ? 'border-red' : 'border-line'
+              )"></div>
           </template>
         </div>
       </div>

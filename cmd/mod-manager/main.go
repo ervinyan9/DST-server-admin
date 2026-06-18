@@ -23,15 +23,14 @@ import (
 const appID = "322330"
 
 type app struct {
-	root         string
-	stateFile    string
-	settingsFile string
-	generatedDir string
-	configDir    string
-	dstDir       string
-	adminKey     string
-	assetVersion string
-	client       *http.Client
+	root           string
+	stateFile      string
+	settingsFile   string
+	dstDir         string
+	supervisorConf string
+	adminKey       string
+	assetVersion   string
+	client         *http.Client
 }
 
 type state struct {
@@ -126,14 +125,6 @@ type serviceStatus struct {
 	RestartCount string `json:"restart_count"`
 }
 
-type composePSItem struct {
-	Name    string `json:"Name"`
-	Service string `json:"Service"`
-	State   string `json:"State"`
-	Health  string `json:"Health"`
-	Status  string `json:"Status"`
-}
-
 type detailsResponse struct {
 	Response struct {
 		Details []struct {
@@ -162,8 +153,9 @@ var whitespacePattern = regexp.MustCompile(`\s+`)
 func main() {
 	port := flag.Int("port", 8788, "HTTP port")
 	listen := flag.String("listen", "127.0.0.1", "HTTP listen address")
-	root := flag.String("root", ".", "project root")
-	dstDir := flag.String("dst-dir", "", "DST docker compose directory, for example /opt/dst-server")
+	root := flag.String("root", "/opt/dst/admin", "admin root directory (templates, static assets)")
+	dstDir := flag.String("dst-dir", "/data", "DST persistent data root (cluster/mods/ugc_mods/admin live here)")
+	supervisorConf := flag.String("supervisor-conf", "/opt/dst/runtime/supervisord.conf", "supervisord config used for supervisorctl")
 	adminKey := flag.String("admin-key", os.Getenv("DST_ADMIN_KEY"), "admin key for API requests")
 	flag.Parse()
 
@@ -172,15 +164,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	adminStateDir := filepath.Join(*dstDir, "admin")
 	a := &app{
-		root:         absRoot,
-		stateFile:    filepath.Join(absRoot, "mods", "server-mods.json"),
-		settingsFile: filepath.Join(absRoot, "config", "server-settings.json"),
-		generatedDir: filepath.Join(absRoot, "mods", "generated"),
-		configDir:    filepath.Join(absRoot, "config", "generated"),
-		dstDir:       *dstDir,
-		adminKey:     *adminKey,
-		assetVersion: strconv.FormatInt(time.Now().Unix(), 10),
+		root:           absRoot,
+		stateFile:      filepath.Join(adminStateDir, "server-mods.json"),
+		settingsFile:   filepath.Join(adminStateDir, "server-settings.json"),
+		dstDir:         *dstDir,
+		supervisorConf: *supervisorConf,
+		adminKey:       *adminKey,
+		assetVersion:   strconv.FormatInt(time.Now().Unix(), 10),
 		client: &http.Client{
 			Timeout: 45 * time.Second,
 		},
@@ -206,8 +198,7 @@ func main() {
 	mux.HandleFunc("/api/mods/diagnostics", a.handleModDiagnostics)
 	mux.HandleFunc("/api/mods/download", a.handleModDownload)
 	mux.HandleFunc("/api/settings", a.handleSettings)
-	mux.HandleFunc("/api/generate", a.handleGenerate)
-	mux.HandleFunc("/api/save", a.handleSaveToServer)
+	mux.HandleFunc("/api/cluster-token", a.handleClusterToken)
 	mux.HandleFunc("/api/restart", a.handleRestartServer)
 	mux.HandleFunc("/api/server/status", a.handleServerStatus)
 	mux.HandleFunc("/api/players", a.handlePlayers)
@@ -299,11 +290,16 @@ func (a *app) ensureState() error {
 	if err := os.MkdirAll(filepath.Dir(a.settingsFile), 0o755); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(a.generatedDir, 0o755); err != nil {
-		return err
+	clusterDir := filepath.Join(a.dstDir, "cluster", "Cluster_1")
+	for _, sub := range []string{"Master", "Caves", "mods"} {
+		if err := os.MkdirAll(filepath.Join(clusterDir, sub), 0o755); err != nil {
+			return err
+		}
 	}
-	if err := os.MkdirAll(a.configDir, 0o755); err != nil {
-		return err
+	for _, dir := range []string{"mods", "ugc_mods"} {
+		if err := os.MkdirAll(filepath.Join(a.dstDir, dir), 0o755); err != nil {
+			return err
+		}
 	}
 	if _, err := os.Stat(a.stateFile); os.IsNotExist(err) {
 		return a.saveState(state{Mods: []mod{}})
@@ -401,8 +397,8 @@ func normalizeSettings(input serverSettings) serverSettings {
 
 func defaultSettings() serverSettings {
 	return serverSettings{
-		ServerName:     "EX 娇柔的饥荒之旅",
-		ServerPassword: "717815",
+		ServerName:     "DST Waystone",
+		ServerPassword: "",
 		GameMode:       "survival",
 		MaxPlayers:     6,
 		PVP:            false,
@@ -601,6 +597,10 @@ func (a *app) handleAddMod(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if _, err := a.applyConfig(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, s)
 }
 
@@ -628,6 +628,10 @@ func (a *app) handleToggleMod(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err := a.saveState(s); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if _, err := a.applyConfig(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -659,6 +663,10 @@ func (a *app) handleRemoveMod(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Mods = next
 	if err := a.saveState(s); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if _, err := a.applyConfig(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -735,33 +743,16 @@ func (a *app) handleSettings(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, s)
-}
-
-func (a *app) handleGenerate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	result, err := a.generateLua()
+	applied, err := a.applyConfig()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, result)
-}
-
-func (a *app) handleSaveToServer(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	result, err := a.saveToServer()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, result)
+	writeJSON(w, map[string]any{
+		"status":   "ok",
+		"state":    s,
+		"applied":  applied,
+	})
 }
 
 func (a *app) handleRestartServer(w http.ResponseWriter, r *http.Request) {
@@ -769,20 +760,69 @@ func (a *app) handleRestartServer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if a.dstDir == "" {
-		http.Error(w, "管理端未配置 -dst-dir，无法重启服务器", http.StatusBadRequest)
+	if !a.clusterTokenPresent() {
+		http.Error(w, "未配置 Klei cluster token，无法启动 DST 服务", http.StatusBadRequest)
 		return
 	}
-	cmd := exec.Command("docker", "compose", "restart")
-	cmd.Dir = a.dstDir
-	out, err := cmd.CombinedOutput()
+	s, err := a.loadState()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("重启失败：%v\n%s", err, string(out)), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	results := []map[string]string{}
+	masterOut, masterErr := a.supervisorctl("restart", "dst-master")
+	results = append(results, map[string]string{"action": "restart dst-master", "output": masterOut, "error": errString(masterErr)})
+	if s.Settings.EnableCaves {
+		out, err := a.supervisorctl("restart", "dst-caves")
+		results = append(results, map[string]string{"action": "restart dst-caves", "output": out, "error": errString(err)})
+	} else {
+		out, err := a.supervisorctl("stop", "dst-caves")
+		results = append(results, map[string]string{"action": "stop dst-caves", "output": out, "error": errString(err)})
+	}
+	if masterErr != nil {
+		http.Error(w, fmt.Sprintf("重启失败：%v\n%s", masterErr, masterOut), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{
+		"status":  "ok",
+		"actions": results,
+	})
+}
+
+func (a *app) handleClusterToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	token := strings.TrimSpace(req.Token)
+	if token == "" {
+		http.Error(w, "token 不能为空", http.StatusBadRequest)
+		return
+	}
+	clusterDir, err := a.clusterDir()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := os.MkdirAll(clusterDir, 0o755); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	tokenPath := filepath.Join(clusterDir, "cluster_token.txt")
+	if err := os.WriteFile(tokenPath, []byte(token+"\n"), 0o600); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, map[string]string{
 		"status": "ok",
-		"output": string(out),
+		"path":   tokenPath,
 	})
 }
 
@@ -1287,11 +1327,24 @@ func hasTag(tags []string, want string) bool {
 	return false
 }
 
-func (a *app) generateLua() (map[string]any, error) {
+func (a *app) applyConfig() (map[string]any, error) {
+	if a.dstDir == "" {
+		return nil, fmt.Errorf("管理端未配置 -dst-dir，无法写入 DST 配置")
+	}
 	s, err := a.loadState()
 	if err != nil {
 		return nil, err
 	}
+	clusterDir, err := a.clusterDir()
+	if err != nil {
+		return nil, err
+	}
+	for _, sub := range []string{"Master", "Caves", "mods"} {
+		if err := os.MkdirAll(filepath.Join(clusterDir, sub), 0o755); err != nil {
+			return nil, err
+		}
+	}
+
 	var enabled []mod
 	for _, item := range s.Mods {
 		if item.Enabled && numericPattern.MatchString(item.ID) {
@@ -1316,64 +1369,37 @@ func (a *app) generateLua() (map[string]any, error) {
 	}
 	overrides.WriteString("}\n")
 
-	setupPath := filepath.Join(a.generatedDir, "dedicated_server_mods_setup.lua")
-	overridePath := filepath.Join(a.generatedDir, "modoverrides.lua")
-	if err := os.WriteFile(setupPath, []byte(setup.String()), 0o644); err != nil {
-		return nil, err
-	}
-	if err := os.WriteFile(overridePath, []byte(overrides.String()), 0o644); err != nil {
-		return nil, err
-	}
-	settingsResult, err := a.generateSettingsFiles(s.Settings)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{
-		"dedicated_server_mods_setup": setupPath,
-		"modoverrides":                overridePath,
-		"enabled_count":               len(enabled),
-		"settings":                    settingsResult,
-	}, nil
-}
-
-func (a *app) saveToServer() (map[string]any, error) {
-	if a.dstDir == "" {
-		return nil, fmt.Errorf("管理端未配置 -dst-dir，无法保存到 DST 服务器")
-	}
-	generated, err := a.generateLua()
-	if err != nil {
-		return nil, err
-	}
-	clusterDir := filepath.Join(a.dstDir, "data", "DoNotStarveTogether", "Cluster_1")
-	paths := []struct {
-		src string
-		dst string
-	}{
-		{filepath.Join(a.generatedDir, "dedicated_server_mods_setup.lua"), filepath.Join(clusterDir, "mods", "dedicated_server_mods_setup.lua")},
-		{filepath.Join(a.generatedDir, "modoverrides.lua"), filepath.Join(clusterDir, "Master", "modoverrides.lua")},
-		{filepath.Join(a.generatedDir, "modoverrides.lua"), filepath.Join(clusterDir, "Caves", "modoverrides.lua")},
-		{filepath.Join(a.configDir, "cluster.ini"), filepath.Join(clusterDir, "cluster.ini")},
-		{filepath.Join(a.configDir, "install-options.env"), filepath.Join(a.dstDir, "install-options.env")},
-	}
 	written := []string{}
-	for _, path := range paths {
-		data, err := os.ReadFile(path.src)
-		if err != nil {
-			return nil, err
+	writeFile := func(path string, data []byte) error {
+		if err := os.WriteFile(path, data, 0o644); err != nil {
+			return err
 		}
-		if err := os.MkdirAll(filepath.Dir(path.dst), 0o755); err != nil {
-			return nil, err
-		}
-		if err := os.WriteFile(path.dst, data, 0o644); err != nil {
-			return nil, err
-		}
-		written = append(written, path.dst)
+		written = append(written, path)
+		return nil
+	}
+	if err := writeFile(filepath.Join(clusterDir, "mods", "dedicated_server_mods_setup.lua"), []byte(setup.String())); err != nil {
+		return nil, err
+	}
+	overridesData := []byte(overrides.String())
+	if err := writeFile(filepath.Join(clusterDir, "Master", "modoverrides.lua"), overridesData); err != nil {
+		return nil, err
+	}
+	if err := writeFile(filepath.Join(clusterDir, "Caves", "modoverrides.lua"), overridesData); err != nil {
+		return nil, err
+	}
+
+	settingsPaths, err := a.generateSettingsFiles(s.Settings)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range settingsPaths {
+		written = append(written, p)
 	}
 	sort.Strings(written)
 	return map[string]any{
-		"status":    "ok",
-		"generated": generated,
-		"written":   written,
+		"status":        "ok",
+		"enabled_count": len(enabled),
+		"written":       written,
 	}, nil
 }
 
@@ -1389,7 +1415,7 @@ func (a *app) modDiagnostics() ([]modDiagnostic, error) {
 	setupText := readTextIfExists(filepath.Join(clusterDir, "mods", "dedicated_server_mods_setup.lua"))
 	masterOverrides := readTextIfExists(filepath.Join(clusterDir, "Master", "modoverrides.lua"))
 	cavesOverrides := readTextIfExists(filepath.Join(clusterDir, "Caves", "modoverrides.lua"))
-	logText := a.composeLogs() + "\n" +
+	logText := a.supervisorLogs() + "\n" +
 		readTextIfExists(filepath.Join(clusterDir, "Master", "server_log.txt")) + "\n" +
 		readTextIfExists(filepath.Join(clusterDir, "Caves", "server_log.txt"))
 
@@ -1428,9 +1454,8 @@ func (a *app) modDiagnostic(item mod, setupText string, masterOverrides string, 
 
 	if a.dstDir != "" {
 		paths := []string{
-			filepath.Join(a.dstDir, "data", "ugc", "content", appID, item.ID),
-			filepath.Join(a.dstDir, "steam", "steamapps", "workshop", "content", appID, item.ID),
-			filepath.Join(a.dstDir, "data", "steamapps", "workshop", "content", appID, item.ID),
+			filepath.Join(a.dstDir, "ugc_mods", "content", appID, item.ID),
+			filepath.Join(a.dstDir, "ugc_mods", "steamapps", "workshop", "content", appID, item.ID),
 		}
 		for _, path := range paths {
 			if info, err := os.Stat(path); err == nil && info.IsDir() {
@@ -1509,11 +1534,18 @@ func formatUnixTime(value int64) string {
 
 func (a *app) downloadWorkshopMod(id string) (modDownloadResponse, error) {
 	if a.dstDir == "" {
-		return modDownloadResponse{}, fmt.Errorf("管理端未配置 -dst-dir，无法在服务器下载 MOD")
+		return modDownloadResponse{}, fmt.Errorf("管理端未配置 -dst-dir，无法下载 MOD")
 	}
-	containerName := a.dstContainerName()
-	cmd := exec.Command("docker", "exec", containerName, "/opt/steamcmd/steamcmd.sh", "+force_install_dir", "/opt/dstserver", "+login", "anonymous", "+workshop_download_item", appID, id, "+quit")
-	cmd.Dir = a.dstDir
+	steamcmd := os.Getenv("STEAMCMDDIR")
+	if steamcmd == "" {
+		steamcmd = "/home/steam/steamcmd"
+	}
+	steamcmdBin := filepath.Join(steamcmd, "steamcmd.sh")
+	ugcRoot := filepath.Join(a.dstDir, "ugc_mods")
+	if err := os.MkdirAll(ugcRoot, 0o755); err != nil {
+		return modDownloadResponse{}, err
+	}
+	cmd := exec.Command(steamcmdBin, "+force_install_dir", ugcRoot, "+login", "anonymous", "+workshop_download_item", appID, id, "+quit")
 	out, err := cmd.CombinedOutput()
 	output := string(out)
 	if err != nil {
@@ -1530,10 +1562,10 @@ func (a *app) downloadWorkshopMod(id string) (modDownloadResponse, error) {
 
 	diag := a.diagnosticByID(id)
 	status := "ok"
-	message := "MOD 已通过 SteamCMD 下载到服务器"
+	message := "MOD 已通过 SteamCMD 下载"
 	if diag.LegacyPackage {
 		status = "legacy"
-		message = "SteamCMD 下载成功，但这是 legacy 包，当前 DST 容器可能无法直接加载"
+		message = "SteamCMD 下载成功，但这是 legacy 包，当前 DST 可能无法直接加载"
 	} else if !diag.Downloaded {
 		status = "warning"
 		message = "SteamCMD 返回成功，但没有在目标目录找到 MOD 文件"
@@ -1547,26 +1579,12 @@ func (a *app) downloadWorkshopMod(id string) (modDownloadResponse, error) {
 	}, nil
 }
 
-func (a *app) dstContainerName() string {
-	services, _, err := a.composeServices()
-	if err != nil {
-		return "dst-server"
-	}
-	for _, service := range services {
-		name := strings.TrimPrefix(strings.TrimSpace(service.Name), "/")
-		if name != "" {
-			return name
-		}
-	}
-	return "dst-server"
-}
-
 func (a *app) copyDownloadedWorkshopMod(id string) (string, error) {
+	ugcRoot := filepath.Join(a.dstDir, "ugc_mods")
 	srcCandidates := []string{
-		filepath.Join(a.dstDir, "steam", "steamapps", "workshop", "content", appID, id),
-		filepath.Join(a.dstDir, "data", "steamapps", "workshop", "content", appID, id),
+		filepath.Join(ugcRoot, "steamapps", "workshop", "content", appID, id),
 	}
-	dst := filepath.Join(a.dstDir, "data", "ugc", "content", appID, id)
+	dst := filepath.Join(ugcRoot, "content", appID, id)
 	for _, src := range srcCandidates {
 		if info, err := os.Stat(src); err == nil && info.IsDir() {
 			if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
@@ -1604,7 +1622,7 @@ func (a *app) diagnosticByID(id string) modDiagnostic {
 		readTextIfExists(filepath.Join(clusterDir, "mods", "dedicated_server_mods_setup.lua")),
 		readTextIfExists(filepath.Join(clusterDir, "Master", "modoverrides.lua")),
 		readTextIfExists(filepath.Join(clusterDir, "Caves", "modoverrides.lua")),
-		a.composeLogs(),
+		a.supervisorLogs(),
 	)
 }
 
@@ -1662,24 +1680,30 @@ func copyFile(src string, dst string, mode os.FileMode) error {
 }
 
 func (a *app) serverStatus() (serverStatusResponse, error) {
-	if a.dstDir == "" {
-		return serverStatusResponse{}, fmt.Errorf("管理端未配置 -dst-dir，无法读取 DST 服务器状态")
-	}
-
-	services, psOutput, err := a.composeServices()
-	logs := a.composeLogs()
 	checkedAt := time.Now().Format("2006-01-02 15:04:05")
-	if err != nil {
+
+	out, err := a.supervisorctl("status")
+	logs := a.supervisorLogs()
+	if err != nil && strings.TrimSpace(out) == "" {
 		return serverStatusResponse{
 			Status:    "error",
-			Message:   strings.TrimSpace(fmt.Sprintf("读取 Docker 状态失败：%v\n%s", err, psOutput)),
+			Message:   strings.TrimSpace(fmt.Sprintf("读取 supervisor 状态失败：%v", err)),
 			CheckedAt: checkedAt,
 			Services:  []serviceStatus{},
 			Logs:      logs,
 		}, nil
 	}
 
-	services = a.inspectServices(services)
+	services := parseSupervisorStatus(out)
+	if !a.clusterTokenPresent() {
+		return serverStatusResponse{
+			Status:    "stopped",
+			Message:   "未配置 Klei cluster token，DST 服务尚未启动",
+			CheckedAt: checkedAt,
+			Services:  services,
+			Logs:      logs,
+		}, nil
+	}
 	status, message := summarizeServices(services)
 	return serverStatusResponse{
 		Status:    status,
@@ -1690,90 +1714,51 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 	}, nil
 }
 
-func (a *app) composeServices() ([]serviceStatus, string, error) {
-	cmd := exec.Command("docker", "compose", "ps", "--format", "json")
-	cmd.Dir = a.dstDir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, string(out), err
-	}
-	items, err := parseComposePS(out)
-	if err != nil {
-		return nil, string(out), err
-	}
-	services := make([]serviceStatus, 0, len(items))
-	for _, item := range items {
-		services = append(services, serviceStatus{
-			Name:    item.Name,
-			Service: item.Service,
-			State:   item.State,
-			Health:  item.Health,
-			Status:  item.Status,
-		})
-	}
-	return services, string(out), nil
-}
-
-func parseComposePS(data []byte) ([]composePSItem, error) {
-	data = bytes.TrimSpace(data)
-	if len(data) == 0 {
-		return []composePSItem{}, nil
-	}
-
-	var array []composePSItem
-	if err := json.Unmarshal(data, &array); err == nil {
-		return array, nil
-	}
-
-	var items []composePSItem
-	for _, line := range strings.Split(string(data), "\n") {
+func parseSupervisorStatus(data string) []serviceStatus {
+	services := []serviceStatus{}
+	for _, line := range strings.Split(strings.TrimSpace(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		var item composePSItem
-		if err := json.Unmarshal([]byte(line), &item); err != nil {
-			return nil, err
-		}
-		items = append(items, item)
-	}
-	return items, nil
-}
-
-func (a *app) inspectServices(services []serviceStatus) []serviceStatus {
-	for i := range services {
-		name := strings.TrimPrefix(strings.TrimSpace(services[i].Name), "/")
-		if name == "" {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
 			continue
 		}
-		cmd := exec.Command("docker", "inspect", "--format", "{{.State.Status}}\t{{if .State.Health}}{{.State.Health.Status}}{{end}}\t{{.State.StartedAt}}\t{{.RestartCount}}", name)
-		out, err := cmd.Output()
-		if err != nil {
-			continue
+		name := fields[0]
+		state := strings.ToLower(fields[1])
+		rest := strings.TrimSpace(strings.TrimPrefix(line, fields[0]))
+		rest = strings.TrimSpace(strings.TrimPrefix(rest, fields[1]))
+		statusText := rest
+		runningForText := ""
+		if idx := strings.Index(rest, "uptime "); idx >= 0 {
+			runningForText = strings.TrimSpace(rest[idx+len("uptime "):])
 		}
-		parts := strings.Split(strings.TrimSpace(string(out)), "\t")
-		if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
-			services[i].State = strings.TrimSpace(parts[0])
+		mappedState := state
+		switch state {
+		case "running":
+			mappedState = "running"
+		case "starting":
+			mappedState = "starting"
+		case "stopped", "exited":
+			mappedState = "stopped"
+		case "fatal", "backoff", "unknown":
+			mappedState = "exited"
 		}
-		if len(parts) > 1 && strings.TrimSpace(parts[1]) != "" {
-			services[i].Health = strings.TrimSpace(parts[1])
-		}
-		if len(parts) > 2 && strings.TrimSpace(parts[2]) != "" {
-			services[i].StartedAt = strings.TrimSpace(parts[2])
-			services[i].RunningFor = runningFor(services[i].StartedAt)
-		}
-		if len(parts) > 3 {
-			services[i].RestartCount = strings.TrimSpace(parts[3])
-		}
+		services = append(services, serviceStatus{
+			Name:       name,
+			Service:    name,
+			State:      mappedState,
+			Status:     statusText,
+			RunningFor: runningForText,
+		})
 	}
 	return services
 }
 
-func (a *app) composeLogs() string {
-	cmd := exec.Command("docker", "compose", "logs", "--tail", "80", "--no-color")
-	cmd.Dir = a.dstDir
-	out, err := cmd.CombinedOutput()
-	text := strings.TrimSpace(string(out))
+func (a *app) supervisorLogs() string {
+	out, err := a.supervisorctl("tail", "-1000", "dst-master")
+	text := strings.TrimSpace(out)
 	if err != nil {
 		text = strings.TrimSpace(fmt.Sprintf("%v\n%s", err, text))
 	}
@@ -1785,7 +1770,7 @@ func (a *app) composeLogs() string {
 
 func summarizeServices(services []serviceStatus) (string, string) {
 	if len(services) == 0 {
-		return "unknown", "没有读取到 Docker Compose 服务，请检查容器是否已经创建"
+		return "unknown", "没有读取到 supervisor 进程，请检查容器启动情况"
 	}
 
 	running := 0
@@ -1793,53 +1778,33 @@ func summarizeServices(services []serviceStatus) (string, string) {
 	unhealthy := 0
 	for _, service := range services {
 		state := strings.ToLower(strings.TrimSpace(service.State))
-		health := strings.ToLower(strings.TrimSpace(service.Health))
-		if state == "running" {
+		switch state {
+		case "running":
 			running++
-		}
-		switch {
-		case health == "unhealthy", state == "exited", state == "dead":
-			unhealthy++
-		case health == "starting", strings.Contains(state, "restart"):
+		case "starting":
 			starting++
+		case "exited", "dead", "fatal":
+			unhealthy++
 		}
 	}
 
 	if unhealthy > 0 {
-		return "error", "服务器容器异常，请查看下方最近日志"
+		return "error", "存在异常的 supervisor 进程，请查看日志"
 	}
 	if running == len(services) && starting == 0 {
-		return "running", "服务器已启动并正在运行"
+		return "running", "服务已启动并正在运行"
 	}
 	if running > 0 || starting > 0 {
-		return "starting", "服务器正在启动或健康检查中，请稍后刷新"
+		return "starting", "进程正在启动，请稍后刷新"
 	}
-	return "stopped", "服务器未运行，请查看下方最近日志"
-}
-
-func runningFor(startedAt string) string {
-	started, err := time.Parse(time.RFC3339Nano, startedAt)
-	if err != nil {
-		return ""
-	}
-	elapsed := time.Since(started)
-	if elapsed < time.Minute {
-		return fmt.Sprintf("%d 秒", int(elapsed.Seconds()))
-	}
-	if elapsed < time.Hour {
-		return fmt.Sprintf("%d 分钟", int(elapsed.Minutes()))
-	}
-	if elapsed < 24*time.Hour {
-		return fmt.Sprintf("%d 小时 %d 分钟", int(elapsed.Hours()), int(elapsed.Minutes())%60)
-	}
-	return fmt.Sprintf("%d 天 %d 小时", int(elapsed.Hours())/24, int(elapsed.Hours())%24)
+	return "stopped", "DST 进程未运行"
 }
 
 func (a *app) clusterDir() (string, error) {
 	if a.dstDir == "" {
 		return "", fmt.Errorf("管理端未配置 -dst-dir，无法读取 DST 配置")
 	}
-	return filepath.Join(a.dstDir, "data", "DoNotStarveTogether", "Cluster_1"), nil
+	return filepath.Join(a.dstDir, "cluster", "Cluster_1"), nil
 }
 
 func (a *app) adminListPath() (string, error) {
@@ -2010,20 +1975,27 @@ func cleanPlayerName(name string) string {
 
 func (a *app) generateSettingsFiles(settings serverSettings) (map[string]string, error) {
 	settings = normalizeSettings(settings)
-	if err := os.MkdirAll(a.configDir, 0o755); err != nil {
+	clusterDir, err := a.clusterDir()
+	if err != nil {
 		return nil, err
 	}
-	settingsPath := a.settingsFile
-	clusterPath := filepath.Join(a.configDir, "cluster.ini")
-	installOptionsPath := filepath.Join(a.configDir, "install-options.env")
+	for _, sub := range []string{"Master", "Caves"} {
+		if err := os.MkdirAll(filepath.Join(clusterDir, sub), 0o755); err != nil {
+			return nil, err
+		}
+	}
 	settingsJSON, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(settingsPath, append(settingsJSON, '\n'), 0o644); err != nil {
+	if err := os.MkdirAll(filepath.Dir(a.settingsFile), 0o755); err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(a.settingsFile, append(settingsJSON, '\n'), 0o644); err != nil {
 		return nil, err
 	}
 
+	clusterPath := filepath.Join(clusterDir, "cluster.ini")
 	clusterINI := fmt.Sprintf(`[GAMEPLAY]
 game_mode = %s
 max_players = %d
@@ -2031,7 +2003,7 @@ pvp = %s
 pause_when_empty = %s
 
 [NETWORK]
-cluster_description = Dedicated Don't Starve Together server deployed by Docker.
+cluster_description = Dedicated Don't Starve Together server.
 cluster_name = %s
 cluster_password = %s
 cluster_intention = cooperative
@@ -2053,37 +2025,43 @@ cluster_key = dst_cluster_key
 		return nil, err
 	}
 
-	installOptions := fmt.Sprintf(`INSTALL_DIR=%s
-CLUSTER_NAME=%s
-KLEI_ROOT=%s
-SERVER_NAME=%s
-SERVER_DESCRIPTION=%s
-MAX_PLAYERS=%s
-GAME_MODE=%s
-PAUSE_WHEN_EMPTY=%s
-PVP=%s
-ENABLE_CAVES=%s
-IMAGE=%s
-`, shellQuote(a.dstDirOrDefault()), shellQuote("Cluster_1"), shellQuote("DoNotStarveTogether"), shellQuote(settings.ServerName), shellQuote("Dedicated Don't Starve Together server deployed by Docker."), shellQuote(strconv.Itoa(settings.MaxPlayers)), shellQuote(settings.GameMode), shellQuote(boolString(settings.PauseWhenEmpty)), shellQuote(boolString(settings.PVP)), shellQuote(boolString(settings.EnableCaves)), shellQuote("jamesits/dst-server:latest"))
-	if err := os.WriteFile(installOptionsPath, []byte(installOptions), 0o644); err != nil {
+	masterPath := filepath.Join(clusterDir, "Master", "server.ini")
+	masterINI := `[SHARD]
+is_master = true
+
+[STEAM]
+authentication_port = 8768
+master_server_port = 27018
+
+[NETWORK]
+server_port = 10999
+`
+	if err := os.WriteFile(masterPath, []byte(masterINI), 0o644); err != nil {
 		return nil, err
 	}
-	return map[string]string{
-		"server_settings": settingsPath,
-		"cluster_ini":     clusterPath,
-		"install_options": installOptionsPath,
-	}, nil
-}
 
-func (a *app) dstDirOrDefault() string {
-	if strings.TrimSpace(a.dstDir) != "" {
-		return strings.TrimSpace(a.dstDir)
+	cavesPath := filepath.Join(clusterDir, "Caves", "server.ini")
+	cavesINI := `[SHARD]
+is_master = false
+name = Caves
+
+[STEAM]
+authentication_port = 8769
+master_server_port = 27019
+
+[NETWORK]
+server_port = 11000
+`
+	if err := os.WriteFile(cavesPath, []byte(cavesINI), 0o644); err != nil {
+		return nil, err
 	}
-	return "/opt/dst-server"
-}
 
-func shellQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+	return map[string]string{
+		"server_settings":    a.settingsFile,
+		"cluster_ini":        clusterPath,
+		"master_server_ini":  masterPath,
+		"caves_server_ini":   cavesPath,
+	}, nil
 }
 
 func boolString(value bool) string {
@@ -2091,6 +2069,36 @@ func boolString(value bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+func (a *app) supervisorctl(args ...string) (string, error) {
+	cmdArgs := []string{}
+	if a.supervisorConf != "" {
+		cmdArgs = append(cmdArgs, "-c", a.supervisorConf)
+	}
+	cmdArgs = append(cmdArgs, args...)
+	cmd := exec.Command("supervisorctl", cmdArgs...)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+func (a *app) clusterTokenPresent() bool {
+	clusterDir, err := a.clusterDir()
+	if err != nil {
+		return false
+	}
+	data, err := os.ReadFile(filepath.Join(clusterDir, "cluster_token.txt"))
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(data)) != ""
 }
 
 func cleanDescription(input string) string {

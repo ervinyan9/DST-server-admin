@@ -531,8 +531,8 @@
     }
   ],
   "settings": {
-    "server_name": "EX ?????",
-    "server_password": "717815",
+    "server_name": "DST Waystone",
+    "server_password": "",
     "game_mode": "endless",
     "max_players": 8,
     "pvp": false,

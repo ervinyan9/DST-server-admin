@@ -58,4 +58,5 @@ docker run --rm \
 
 - DST server files are downloaded by SteamCMD when `DST_SKIP_GAME_UPDATE=false`, or at build time when `DST_DOWNLOAD_AT_BUILD=true`.
 - Klei token, server password, player IDs, saves, logs, Steam cache, and Workshop content are not stored in Git.
-- This first build context proves the image build path. Full admin adaptation for the `/data` layout is a later step.
+- `dst-master` / `dst-caves` are configured with `autostart=false` in supervisor; the admin owns their lifecycle through `supervisorctl`. Without a Klei token, the admin keeps both shards stopped.
+- Cluster config (`cluster.ini`, `Master/server.ini`, `Caves/server.ini`, `modoverrides.lua`, `dedicated_server_mods_setup.lua`) is written directly into `/data/cluster/Cluster_1/` by the admin; restart via the admin UI to apply.

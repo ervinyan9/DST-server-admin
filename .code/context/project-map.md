@@ -6,9 +6,9 @@
 README.md                 项目总入口
 AGENTS.md                 AI 协作和项目工作约束
 go.mod                    Go 模块声明
-cmd/mod-manager/          dst-admin Go HTTP 管理端（含旧版宿主机部署硬编码路径，待迁移）
+cmd/mod-manager/          dst-admin Go HTTP 管理端（默认 -root=/opt/dst/admin、-dst-dir=/data）
 web/                      管理端页面模板和静态资源
-mods/                     管理端 MOD 状态种子和生成配置（运行产物已 git ignore）
+mods/                     管理端 MOD 状态种子（容器内运行时写入 /data/admin/）
 docker/                   dst-waystone 镜像构建上下文 + Compose 启动
 examples/                 仓库自有示例（worldgenoverride 等）
 docs/                     设计、来源、镜像候选、MOD 整合文档
@@ -29,13 +29,13 @@ docs/                     设计、来源、镜像候选、MOD 整合文档
 
 - 入口：`cmd/mod-manager/main.go`
 - 端口：默认 `8788`
+- 容器路径：`-root=/opt/dst/admin`、`-dst-dir=/data`、`-supervisor-conf=/opt/dst/runtime/supervisord.conf`
 - 认证：`DST_ADMIN_KEY`，为空时 API 不受保护，仅适合本地验证。
-- 状态：`mods/server-mods.json`（仓库种子，运行时被覆盖）
-- 生成物：`mods/generated/`、`config/generated/`（已 ignore）
-- 前端：`web/templates/index.html`、`web/static/app.css`、`web/static/app.js`
+- 状态：`/data/admin/server-mods.json`、`/data/admin/server-settings.json`（容器运行时；仓库内 `mods/server-mods.json` 仅作种子）
+- 落地：`cluster.ini`、`Master/server.ini`、`Caves/server.ini`、`modoverrides.lua`、`dedicated_server_mods_setup.lua` 由管理端直接写入 `/data/cluster/Cluster_1/`
+- 进程控制：通过 `supervisorctl -c /opt/dst/runtime/supervisord.conf` 管理 `dst-master`/`dst-caves`，supervisor 中两者 `autostart=false`
+- 前端：`web/templates/index.html`、`web/static/app.css`、`web/static/app.js`（Alpine.js SPA）
 - 文档：`docs/admin/mod-manager.md`、`docs/admin/mod-consolidation-plan.md`
-
-注：`main.go` 当前仍硬编码 `/opt/dst-server/...` 旧宿主机路径和 `jamesits/dst-server:latest` compose 模板。迁移到 `dst-waystone` 容器内 `/data` 与 `/opt/dst/admin` 是后续独立任务。
 
 ## 饥荒 MOD 开发资料
 

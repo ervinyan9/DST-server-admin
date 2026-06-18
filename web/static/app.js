@@ -4,7 +4,7 @@ function dstAdminApp(options) {
     authenticated: false,
     loginKey: "",
     authError: "",
-    activeTab: "server",
+    activeTab: "dashboard",
     busy: {},
     toasts: [],
     settings: {
@@ -16,6 +16,7 @@ function dstAdminApp(options) {
       pause_when_empty: true,
       enable_caves: true,
     },
+    clusterToken: "",
     mods: [],
     status: { status: "unknown", services: [], logs: "" },
     players: [],
@@ -142,34 +143,32 @@ function dstAdminApp(options) {
             method: "POST",
             body: JSON.stringify(this.settings),
           });
-          this.settings = { ...this.settings, ...(data.settings || {}) };
-        });
-        this.toast("基础设置已保存到管理端草稿", "success");
-      } catch (error) {
-        this.toast(error.message, "error");
-      }
-    },
-
-    async generateConfig() {
-      try {
-        await this.withBusy("generate", async () => {
-          await this.saveSettings();
-          const data = await this.api("/api/generate", { method: "POST", body: "{}" });
-          this.toast(`已生成本地配置，启用 ${data.enabled_count || 0} 个 MOD`, "success");
+          if (data.state && data.state.settings) {
+            this.settings = { ...this.settings, ...data.state.settings };
+          }
+          const written = (data.applied && data.applied.written) || [];
+          this.toast(`配置已保存到 /data，写入 ${written.length} 个文件`, "success");
         });
       } catch (error) {
         this.toast(error.message, "error");
       }
     },
 
-    async saveToServer() {
+    async saveClusterToken() {
+      const token = this.clusterToken.trim();
+      if (!token) {
+        this.toast("请输入 Klei cluster token", "warning");
+        return;
+      }
       try {
-        await this.withBusy("save", async () => {
-          await this.api("/api/settings", { method: "POST", body: JSON.stringify(this.settings) });
-          const data = await this.api("/api/save", { method: "POST", body: "{}" });
-          await this.loadDiagnostics();
-          this.toast(`已保存到服务器，写入 ${data.written ? data.written.length : 0} 个文件`, "success");
+        await this.withBusy("token", async () => {
+          await this.api("/api/cluster-token", {
+            method: "POST",
+            body: JSON.stringify({ token }),
+          });
         });
+        this.clusterToken = "";
+        this.toast("Klei cluster token 已写入，可点击重启启动 DST", "success");
       } catch (error) {
         this.toast(error.message, "error");
       }
@@ -180,7 +179,7 @@ function dstAdminApp(options) {
       try {
         await this.withBusy("restart", async () => {
           await this.api("/api/restart", { method: "POST", body: "{}" });
-          this.toast("重启命令已发送，正在轮询启动状态", "success");
+          this.toast("已发出重启指令，正在轮询启动状态", "success");
           await this.loadServerStatus(true);
           this.startPolling();
         });
@@ -276,7 +275,7 @@ function dstAdminApp(options) {
           });
           this.mods = data.mods || [];
         });
-        this.toast(`已加入右侧已安装列表：${id}。保存并重启后生效`, "success");
+        this.toast(`已加入 MOD ${id}，配置已写入 /data`, "success");
       } catch (error) {
         this.toast(error.message, "error");
       }
@@ -359,7 +358,7 @@ function dstAdminApp(options) {
     async addAdminByKuid() {
       const kuid = this.adminKuid.trim();
       if (!/^KU_[A-Za-z0-9]+$/.test(kuid)) {
-        this.toast("请输入正确的 Klei ID，例如 KU_AvFFQ7Ox", "warning");
+        this.toast("请输入正确的 Klei ID，例如 KU_xxxxxxxx", "warning");
         return;
       }
       await this.setAdmin(kuid, true);
@@ -384,19 +383,65 @@ function dstAdminApp(options) {
       }[this.status.status] || "等待状态刷新";
     },
 
-    tabClass(name) {
-      return this.activeTab === name ? "tab-button active" : "tab-button";
+    navClass(name) {
+      // 侧栏导航按钮的 utility class 串。基础部分始终成立，再根据 active 切换深浅主题。
+      const base =
+        "flex items-center gap-2.5 min-h-8 rounded-md px-2.5 py-1.5 " +
+        "text-[13px] font-semibold w-full text-left bg-transparent border-0 " +
+        "cursor-pointer transition-colors flex-none " +
+        "max-[1080px]:w-auto max-[1080px]:whitespace-nowrap";
+      return this.activeTab === name
+        ? base + " bg-panel text-ink"
+        : base + " text-cream/75 hover:bg-cream/10 hover:text-cream";
+    },
+
+    navIconClass(name) {
+      // 选中时图标用红色，未选中用琥珀色。
+      const base = "text-[10px] w-3 text-center";
+      return this.activeTab === name ? base + " text-red" : base + " text-amber";
+    },
+
+    currentTabEyebrow() {
+      return {
+        dashboard: "概览",
+        settings: "配置",
+        mods: "MOD",
+        players: "权限",
+      }[this.activeTab] || "管理端";
+    },
+
+    currentTabTitle() {
+      return {
+        dashboard: "控制台",
+        settings: "服务器设置",
+        mods: "MOD 管理",
+        players: "玩家权限",
+      }[this.activeTab] || "饥荒联机版管理端";
     },
 
     statusBadgeClass(status) {
+      // 顶部 / 服务卡片右侧的圆角徽章，根据状态字符串返回不同色调。
+      const base =
+        "inline-flex items-center min-h-6 rounded-full border " +
+        "px-[9px] py-[3px] text-xs font-extrabold whitespace-nowrap";
       const value = String(status || "unknown").toLowerCase();
-      if (value.includes("running") || value === "healthy") return "status-badge ok";
-      if (value.includes("start") || value === "unknown") return "status-badge warn";
-      return "status-badge danger";
+      if (value.includes("running") || value === "healthy") {
+        return base + " bg-green/[0.13] border-green/[0.44] text-[#1f5d35]";
+      }
+      if (value.includes("start") || value === "unknown") {
+        return base + " bg-amber/[0.17] border-amber/[0.45] text-[#704313]";
+      }
+      return base + " bg-red/[0.13] border-red/[0.42] text-red-dark";
     },
 
     diagClass(value) {
-      return value ? "diag-pill ok" : "diag-pill danger";
+      // MOD 诊断里的"配置/下载/启用/日志加载"小药丸，绿表正常红表缺失。
+      const base =
+        "inline-flex items-center min-h-6 rounded-full border " +
+        "px-[9px] py-[3px] text-xs font-extrabold whitespace-nowrap";
+      return value
+        ? base + " bg-green/[0.13] border-green/[0.44] text-[#1f5d35]"
+        : base + " bg-red/[0.13] border-red/[0.42] text-red-dark";
     },
 
     sortLabel(value) {

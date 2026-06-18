@@ -1,23 +1,15 @@
-:root {
-  color-scheme: dark;
-  --bg: #17120f;
-  --bg-deep: #0f0b09;
-  --panel: #f1dfb7;
-  --panel-2: #e4c98f;
-  --ink: #241812;
-  --muted: #725f49;
-  --line: #7f4a2d;
-  --line-soft: rgba(75, 42, 25, .22);
-  --wood: #2c1710;
-  --wood-2: #4b2a19;
-  --red: #9d2722;
-  --red-dark: #6f1817;
-  --amber: #c67c28;
-  --green: #2f7b47;
-  --cream: #fff5d8;
-  --shadow: 0 18px 42px rgba(8, 4, 2, .34);
-  font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
-}
+/* dst-waystone 管理端的全局基础样式
+ *
+ * 只保留 Tailwind utility class 难以自然表达，且必须以原生 CSS 落地的部分：
+ * - 全局 reset / focus-visible 轮廓 / [x-cloak]
+ * - body 多层渐变背景（utility 写起来太长）
+ * - .btn 家族（同模板里出现 30+ 次，按 utility-first 规则的"≥10 utility 且重复≥3 处"
+ *   例外条款抽出来）
+ * - .log-box（自定义等宽字体 + 滚动框，单点出现）
+ *
+ * 其他视觉风格（panel、sidebar、header、grid、徽章、表格...）一律改成模板里直接写
+ * Tailwind utility class，避免再走"组件类 + @apply"那条 Play CDN 容易踩 bug 的路。
+ */
 
 * {
   box-sizing: border-box;
@@ -37,13 +29,16 @@ body {
   background:
     linear-gradient(135deg, rgba(198, 124, 40, .12), transparent 28%),
     radial-gradient(circle at 78% 8%, rgba(157, 39, 34, .18), transparent 30%),
-    var(--bg);
-  color: var(--ink);
+    #17120f;
+  color: #241812;
+  color-scheme: dark;
+  font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
 }
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -54,6 +49,7 @@ button {
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
+textarea:focus-visible,
 a:focus-visible {
   outline: 3px solid rgba(198, 124, 40, .62);
   outline-offset: 2px;
@@ -64,237 +60,7 @@ a {
   text-decoration: none;
 }
 
-.app-shell,
-.admin-layout {
-  min-height: 100dvh;
-}
-
-.login-screen {
-  align-items: center;
-  display: grid;
-  min-height: 100dvh;
-  padding: 24px;
-}
-
-.login-card {
-  background: var(--panel);
-  border: 2px solid var(--line);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  margin: 0 auto;
-  max-width: 460px;
-  padding: 32px;
-  width: 100%;
-}
-
-.brand-mark {
-  align-items: center;
-  background: var(--red);
-  border: 2px solid var(--red-dark);
-  border-radius: 6px;
-  color: var(--cream);
-  display: inline-flex;
-  font-weight: 900;
-  height: 48px;
-  justify-content: center;
-  letter-spacing: 0;
-  width: 64px;
-}
-
-.brand-mark.small {
-  flex: 0 0 auto;
-  height: 42px;
-  width: 54px;
-}
-
-.eyebrow {
-  color: var(--red-dark);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: .08em;
-  margin: 0 0 6px;
-}
-
-.login-card h1,
-.header-title h1,
-.panel h2 {
-  line-height: 1.2;
-  margin: 0;
-}
-
-.login-card h1 {
-  font-size: 28px;
-}
-
-.login-copy,
-.muted {
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.small {
-  font-size: 12px;
-}
-
-.login-form {
-  display: grid;
-  gap: 14px;
-  margin-top: 24px;
-}
-
-label {
-  display: grid;
-  gap: 7px;
-}
-
-label span {
-  color: var(--wood-2);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-input,
-select {
-  background: #fff7de;
-  border: 1px solid rgba(75, 42, 25, .42);
-  border-radius: 6px;
-  color: var(--ink);
-  min-width: 0;
-  padding: 10px 12px;
-}
-
-select {
-  cursor: pointer;
-}
-
-.form-error {
-  color: var(--red-dark);
-  font-size: 13px;
-  margin: 8px 0 0;
-}
-
-.admin-layout {
-  display: grid;
-  grid-template-rows: auto 1fr;
-}
-
-.admin-header {
-  align-items: center;
-  background: rgba(44, 23, 16, .96);
-  border-bottom: 2px solid rgba(198, 124, 40, .52);
-  color: var(--cream);
-  display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(260px, 1fr) auto auto;
-  min-height: 72px;
-  padding: 12px 18px;
-  position: sticky;
-  top: 0;
-  z-index: 20;
-}
-
-.header-title {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-  min-width: 0;
-}
-
-.header-title h1 {
-  color: var(--cream);
-  font-size: 19px;
-}
-
-.header-title p {
-  color: rgba(255, 245, 216, .68);
-  font-size: 12px;
-  margin: 3px 0 0;
-}
-
-.top-tabs,
-.header-actions,
-.action-row,
-.card-actions,
-.toolbar,
-.manual-add,
-.helper-row,
-.pager {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-}
-
-.top-tabs {
-  background: rgba(15, 11, 9, .48);
-  border: 1px solid rgba(255, 245, 216, .18);
-  border-radius: 8px;
-  padding: 4px;
-}
-
-.tab-button {
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  color: rgba(255, 245, 216, .72);
-  cursor: pointer;
-  padding: 9px 13px;
-  white-space: nowrap;
-}
-
-.tab-button.active {
-  background: var(--panel);
-  color: var(--ink);
-  font-weight: 800;
-}
-
-.admin-main {
-  margin: 0 auto;
-  max-width: 1480px;
-  padding: 16px;
-  width: 100%;
-}
-
-.view-stack {
-  display: grid;
-  gap: 14px;
-}
-
-.dashboard-grid,
-.mods-layout {
-  align-items: start;
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 1.1fr) minmax(380px, .9fr);
-}
-
-.panel {
-  background: var(--panel);
-  border: 2px solid var(--line);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  min-width: 0;
-  overflow: hidden;
-  padding: 16px;
-}
-
-.hero-panel {
-  background:
-    linear-gradient(135deg, rgba(255, 245, 216, .72), rgba(228, 201, 143, .95)),
-    var(--panel);
-}
-
-.panel-title-row {
-  align-items: start;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.panel-title-row h2 {
-  font-size: 18px;
-}
-
+/* .btn 家族：模板里使用 30+ 次，按 utility-first 例外条款抽出来 */
 .btn {
   align-items: center;
   border: 1px solid transparent;
@@ -320,15 +86,15 @@ select {
 }
 
 .btn-primary {
-  background: var(--wood-2);
-  border-color: var(--wood);
-  color: var(--cream);
+  background: #4b2a19;
+  border-color: #2c1710;
+  color: #fff5d8;
 }
 
 .btn-secondary {
   background: #fff7de;
   border-color: rgba(75, 42, 25, .46);
-  color: var(--wood);
+  color: #2c1710;
 }
 
 .btn-ghost {
@@ -337,158 +103,24 @@ select {
   color: inherit;
 }
 
-.panel .btn-ghost {
+/* 卡片底色为 panel 时，btn-ghost 需要更深的边框/字色才看得清 */
+.btn-ghost-warm {
+  background: rgba(255, 245, 216, .12);
   border-color: rgba(75, 42, 25, .32);
-  color: var(--wood);
+  color: #2c1710;
 }
 
 .btn-danger {
-  background: var(--red);
-  border-color: var(--red-dark);
-  color: var(--cream);
+  background: #9d2722;
+  border-color: #6f1817;
+  color: #fff5d8;
 }
 
 .btn-wide {
   width: 100%;
 }
 
-.metric-grid,
-.form-grid,
-.service-grid {
-  display: grid;
-  gap: 10px;
-}
-
-.metric-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 14px 0;
-}
-
-.metric-card {
-  background: rgba(255, 247, 222, .68);
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  padding: 12px;
-}
-
-.metric-card span,
-dt {
-  color: var(--muted);
-  display: block;
-  font-size: 12px;
-  margin-bottom: 5px;
-}
-
-.metric-card strong {
-  color: var(--ink);
-  display: block;
-  font-size: 16px;
-}
-
-.form-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.toggle-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 12px;
-}
-
-.toggle-grid label,
-.switch-line {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-}
-
-.toggle-grid input,
-.switch-line input {
-  accent-color: var(--red);
-}
-
-.status-badge,
-.tag,
-.diag-pill {
-  align-items: center;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 800;
-  min-height: 24px;
-  padding: 3px 9px;
-  white-space: nowrap;
-}
-
-.status-badge.ok,
-.tag.ok,
-.diag-pill.ok {
-  background: rgba(47, 123, 71, .13);
-  border-color: rgba(47, 123, 71, .44);
-  color: #1f5d35;
-}
-
-.status-badge.warn,
-.tag.warn {
-  background: rgba(198, 124, 40, .17);
-  border-color: rgba(198, 124, 40, .45);
-  color: #704313;
-}
-
-.status-badge.danger,
-.diag-pill.danger {
-  background: rgba(157, 39, 34, .13);
-  border-color: rgba(157, 39, 34, .42);
-  color: var(--red-dark);
-}
-
-.tag {
-  background: rgba(75, 42, 25, .08);
-  border-color: rgba(75, 42, 25, .24);
-  color: var(--wood);
-}
-
-.service-grid {
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-}
-
-.service-card,
-.mod-card,
-.installed-row {
-  background: rgba(255, 247, 222, .68);
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-}
-
-.service-card {
-  padding: 12px;
-}
-
-.service-head {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-dl {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-}
-
-dd {
-  margin: 0;
-  word-break: break-word;
-}
-
-.logs-panel {
-  min-height: 280px;
-}
-
+/* 日志预览框：等宽字体 + 软滚动，单点使用 */
 .log-box {
   background: #120d0b;
   border: 1px solid rgba(255, 245, 216, .18);
@@ -503,348 +135,4 @@ dd {
   overflow: auto;
   padding: 12px;
   white-space: pre-wrap;
-}
-
-.market-panel,
-.installed-panel {
-  display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
-  height: calc(100dvh - 116px);
-  min-height: 620px;
-}
-
-.toolbar {
-  align-items: stretch;
-}
-
-.toolbar input,
-.manual-add input {
-  flex: 1;
-}
-
-.toolbar select {
-  max-width: 160px;
-}
-
-.helper-row {
-  color: var(--muted);
-  font-size: 12px;
-  justify-content: space-between;
-  margin: 10px 0;
-}
-
-.market-scroll,
-.installed-scroll,
-.table-scroll {
-  min-height: 0;
-  overflow: auto;
-  padding-right: 4px;
-}
-
-.market-scroll {
-  display: grid;
-  gap: 10px;
-}
-
-.mod-card {
-  align-items: stretch;
-  display: grid;
-  grid-template-columns: 112px minmax(0, 1fr) 138px;
-  min-height: 196px;
-  overflow: hidden;
-}
-
-.mod-card img {
-  background: rgba(75, 42, 25, .18);
-  height: 100%;
-  min-height: 196px;
-  object-fit: cover;
-  width: 112px;
-}
-
-.mod-body {
-  display: grid;
-  grid-template-rows: auto auto auto minmax(0, auto) auto auto;
-  min-width: 0;
-  padding: 12px;
-}
-
-.mod-title-row {
-  align-items: start;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-}
-
-.mod-title-row h3 {
-  font-size: 15px;
-  line-height: 1.35;
-  margin: 0;
-  word-break: break-word;
-}
-
-.mod-id,
-code {
-  background: rgba(44, 23, 16, .11);
-  border: 1px solid rgba(44, 23, 16, .16);
-  border-radius: 5px;
-  color: var(--wood);
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 12px;
-  padding: 2px 5px;
-}
-
-.tag-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0;
-}
-
-.mod-desc {
-  color: var(--muted);
-  display: -webkit-box;
-  font-size: 12px;
-  line-height: 1.45;
-  margin: 0 0 8px;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.mod-meta {
-  color: var(--muted);
-  display: flex;
-  flex-wrap: wrap;
-  font-size: 12px;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.mod-actions {
-  align-items: stretch;
-  background: rgba(44, 23, 16, .05);
-  border-left: 1px solid var(--line-soft);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  justify-content: center;
-  min-height: 196px;
-  padding: 12px;
-}
-
-.mod-actions code {
-  align-self: stretch;
-  text-align: center;
-}
-
-.mod-actions .btn {
-  min-height: 34px;
-  width: 100%;
-}
-
-.installed-scroll {
-  display: grid;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.installed-row {
-  padding: 12px;
-}
-
-.switch-line {
-  justify-content: space-between;
-}
-
-.switch-line span {
-  display: grid;
-  flex: 1;
-  gap: 3px;
-}
-
-.switch-line small {
-  color: var(--muted);
-}
-
-.installed-actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 10px;
-}
-
-.diagnostic-box {
-  background: rgba(44, 23, 16, .06);
-  border-radius: 8px;
-  margin-top: 10px;
-  padding: 10px;
-}
-
-.diag-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.diagnostic-box ul {
-  color: var(--red-dark);
-  font-size: 12px;
-  margin: 8px 0 0;
-  padding-left: 18px;
-}
-
-.manual-add {
-  margin-bottom: 10px;
-}
-
-.table-scroll {
-  max-height: calc(100dvh - 250px);
-}
-
-table {
-  border-collapse: collapse;
-  min-width: 760px;
-  width: 100%;
-}
-
-th,
-td {
-  border-bottom: 1px solid var(--line-soft);
-  padding: 10px;
-  text-align: left;
-  vertical-align: middle;
-}
-
-th {
-  background: var(--panel);
-  color: var(--muted);
-  font-size: 12px;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.empty-state,
-.empty-cell {
-  color: var(--muted);
-  font-size: 14px;
-  padding: 24px;
-  text-align: center;
-}
-
-.toast-stack {
-  bottom: 18px;
-  display: grid;
-  gap: 8px;
-  max-width: min(420px, calc(100vw - 32px));
-  position: fixed;
-  right: 18px;
-  z-index: 50;
-}
-
-.toast {
-  background: var(--panel);
-  border: 2px solid var(--line);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  color: var(--ink);
-  font-size: 14px;
-  padding: 12px 14px;
-}
-
-.toast.success {
-  border-color: var(--green);
-}
-
-.toast.warning {
-  border-color: var(--amber);
-}
-
-.toast.error {
-  border-color: var(--red);
-}
-
-@media (max-width: 1080px) {
-  .admin-header {
-    grid-template-columns: 1fr;
-  }
-
-  .top-tabs,
-  .header-actions {
-    justify-content: flex-start;
-    overflow-x: auto;
-  }
-
-  .dashboard-grid,
-  .mods-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .market-panel,
-  .installed-panel {
-    height: auto;
-    min-height: 0;
-  }
-
-  .market-scroll,
-  .installed-scroll {
-    max-height: 720px;
-  }
-}
-
-@media (max-width: 720px) {
-  .admin-main {
-    padding: 10px;
-  }
-
-  .panel {
-    padding: 12px;
-  }
-
-  .form-grid,
-  .metric-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .panel-title-row,
-  .helper-row,
-  .toolbar,
-  .manual-add {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .toolbar select {
-    max-width: none;
-  }
-
-  .mod-card {
-    grid-template-columns: 1fr;
-  }
-
-  .mod-card img {
-    height: 150px;
-    width: 100%;
-  }
-
-  .mod-actions {
-    border-left: 0;
-    border-top: 1px solid var(--line-soft);
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .card-actions,
-  .action-row,
-  .installed-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .btn {
-    width: 100%;
-  }
 }

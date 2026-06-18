@@ -6,8 +6,8 @@
 
 ## 当前边界
 
-- 镜像构建上下文在 `docker/`：`Dockerfile` 用于构建 `dst-waystone:local`，`compose.yml` + `.env.example` 用于启动容器，`entrypoint.sh` 与 `supervisord.conf` 是运行时编排。
-- 管理端代码在 `cmd/mod-manager/`、`web/`、`mods/`。注：`main.go` 仍保留旧版宿主机部署的硬编码路径（`/opt/dst-server/...`），迁移到 `dst-waystone` 容器内 `/data` 与 `/opt/dst/admin` 是后续独立任务。
+- 镜像构建上下文在 `docker/`：`Dockerfile` 用于构建 `dst-waystone:local`，`compose.yml` + `.env.example` 用于启动容器，`entrypoint.sh` 与 `supervisord.conf` 是运行时编排。`dst-master` / `dst-caves` 在 supervisor 中 `autostart=false`，由管理端通过 `supervisorctl` 控制启停。
+- 管理端代码在 `cmd/mod-manager/`、`web/`、`mods/`。已迁移到 `dst-waystone` 容器契约：`-root=/opt/dst/admin`、`-dst-dir=/data`，状态写入 `/data/admin/`，cluster 配置直接落到 `/data/cluster/Cluster_1/`。
 - 配方示例在 `examples/`，只放与本仓库自有内容相关的最小样板。
 - 饥荒 MOD 开发资料沉淀在 `.code/knowledge/dst-mod-development/`，进入实际代码开发前必须先补齐机制理解、设计、验证和来源边界。
 
