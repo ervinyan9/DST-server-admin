@@ -16,6 +16,10 @@ FROM --platform=$DST_IMAGE_PLATFORM cm2network/steamcmd:root
 ARG DEBIAN_FRONTEND=noninteractive
 ARG STEAM_APPID=343050
 ARG DST_DOWNLOAD_AT_BUILD=false
+ARG USE_BUILD_PROXY=false
+ARG BUILD_HTTP_PROXY=""
+ARG BUILD_HTTPS_PROXY=""
+ARG BUILD_NO_PROXY=""
 
 ENV HTTP_PROXY="" \
     HTTPS_PROXY="" \
@@ -38,7 +42,13 @@ ENV DST_ROOT=/opt/dst \
     DST_UPDATE_MODS_ON_START=false
 
 RUN set -eux; \
-    unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy; \
+    if [ "${USE_BUILD_PROXY}" = "true" ]; then \
+      export HTTP_PROXY="${BUILD_HTTP_PROXY}" HTTPS_PROXY="${BUILD_HTTPS_PROXY}" \
+        http_proxy="${BUILD_HTTP_PROXY}" https_proxy="${BUILD_HTTPS_PROXY}" \
+        NO_PROXY="${BUILD_NO_PROXY}" no_proxy="${BUILD_NO_PROXY}"; \
+    else \
+      unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy; \
+    fi; \
     dpkg --add-architecture i386; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -53,7 +63,13 @@ RUN set -eux; \
     mkdir -p "${DST_GAME_DIR}" "${DST_ADMIN_DIR}" "${DST_RUNTIME_DIR}" "${DST_DATA_DIR}"
 
 RUN set -eux; \
-    unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy; \
+    if [ "${USE_BUILD_PROXY}" = "true" ]; then \
+      export HTTP_PROXY="${BUILD_HTTP_PROXY}" HTTPS_PROXY="${BUILD_HTTPS_PROXY}" \
+        http_proxy="${BUILD_HTTP_PROXY}" https_proxy="${BUILD_HTTPS_PROXY}" \
+        NO_PROXY="${BUILD_NO_PROXY}" no_proxy="${BUILD_NO_PROXY}"; \
+    else \
+      unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy; \
+    fi; \
     if [ "${DST_DOWNLOAD_AT_BUILD}" = "true" ]; then \
       "${STEAMCMDDIR}/steamcmd.sh" \
         +force_install_dir "${DST_GAME_DIR}" \
