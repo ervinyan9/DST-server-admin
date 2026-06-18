@@ -90,6 +90,18 @@ RUN set -eux; \
       unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy; \
     fi; \
     if [ "${DST_DOWNLOAD_AT_BUILD}" = "true" ]; then \
+      "${STEAMCMDDIR}/steamcmd.sh" +quit; \
+    fi
+
+RUN set -eux; \
+    if [ "${USE_BUILD_PROXY}" = "true" ]; then \
+      export HTTP_PROXY="${BUILD_HTTP_PROXY}" HTTPS_PROXY="${BUILD_HTTPS_PROXY}" \
+        http_proxy="${BUILD_HTTP_PROXY}" https_proxy="${BUILD_HTTPS_PROXY}" \
+        NO_PROXY="${BUILD_NO_PROXY}" no_proxy="${BUILD_NO_PROXY}"; \
+    else \
+      unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy NO_PROXY no_proxy; \
+    fi; \
+    if [ "${DST_DOWNLOAD_AT_BUILD}" = "true" ]; then \
       "${STEAMCMDDIR}/steamcmd.sh" \
         +@sSteamCmdForcePlatformType "${STEAMCMD_PLATFORM_TYPE}" \
         +@sSteamCmdForcePlatformBitness "${STEAMCMD_PLATFORM_BITNESS}" \
