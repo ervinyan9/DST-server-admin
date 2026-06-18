@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPasswordLoginReturnsDerivedAdminKey(t *testing.T) {
@@ -69,5 +72,18 @@ func TestTailText(t *testing.T) {
 	}
 	if got := tailText("abc", 10); got != "abc" {
 		t.Fatalf("tailText() = %q, want %q", got, "abc")
+	}
+}
+
+func TestRunCommandOutputKillsProcessGroupOnTimeout(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+	_, err := runCommandOutput(ctx, exec.Command("sh", "-c", "sleep 5"))
+	if err != context.DeadlineExceeded {
+		t.Fatalf("runCommandOutput() error = %v, want %v", err, context.DeadlineExceeded)
+	}
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("runCommandOutput() returned too late: %s", elapsed)
 	}
 }

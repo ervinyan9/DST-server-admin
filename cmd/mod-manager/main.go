@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -1624,7 +1625,7 @@ func (a *app) downloadWorkshopMod(id string) (modDownloadResponse, error) {
 		"+workshop_download_item", appID, id,
 		"+quit",
 	)
-	out, err := cmd.CombinedOutput()
+	out, err := runCommandOutput(ctx, cmd)
 	output := string(out)
 	if ctx.Err() == context.DeadlineExceeded {
 		return modDownloadResponse{}, fmt.Errorf("SteamCMD 下载超时（%s）：%s\n%s", timeout, id, tailText(output, 4000))
@@ -1666,6 +1667,27 @@ func tailText(input string, maxBytes int) string {
 		return input
 	}
 	return input[len(input)-maxBytes:]
+}
+
+func runCommandOutput(ctx context.Context, cmd *exec.Cmd) ([]byte, error) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	done := make(chan struct{})
+	var out []byte
+	var err error
+	go func() {
+		out, err = cmd.CombinedOutput()
+		close(done)
+	}()
+	select {
+	case <-ctx.Done():
+		if cmd.Process != nil {
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		}
+		<-done
+		return out, ctx.Err()
+	case <-done:
+		return out, err
+	}
 }
 
 func (a *app) copyDownloadedWorkshopMod(id string) (string, error) {
