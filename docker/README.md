@@ -35,7 +35,11 @@ Build-time DST download depends on Steam network and app configuration. The defa
 Without a Klei token, the image initializes `/data`, starts `dst-admin`, and keeps DST shards disabled.
 
 ```bash
-docker run --rm -p 8788:8788 dst-waystone:local
+docker run --rm \
+  -e DST_ADMIN_USERNAME="<set-admin-username>" \
+  -e DST_ADMIN_PASSWORD="<set-admin-password>" \
+  -p 8788:8788 \
+  dst-waystone:local
 ```
 
 ## Run With DST Token
@@ -43,7 +47,8 @@ docker run --rm -p 8788:8788 dst-waystone:local
 ```bash
 docker run --rm \
   -e DST_CLUSTER_TOKEN="<set-klei-token>" \
-  -e DST_ADMIN_KEY="<set-admin-key>" \
+  -e DST_ADMIN_USERNAME="<set-admin-username>" \
+  -e DST_ADMIN_PASSWORD="<set-admin-password>" \
   -e DST_SKIP_GAME_UPDATE=false \
   -p 8788:8788 \
   -p 10999:10999/udp \
@@ -58,5 +63,6 @@ docker run --rm \
 
 - DST server files are downloaded by SteamCMD when `DST_SKIP_GAME_UPDATE=false`, or at build time when `DST_DOWNLOAD_AT_BUILD=true`.
 - Klei token, server password, player IDs, saves, logs, Steam cache, and Workshop content are not stored in Git.
+- The admin UI logs in with `DST_ADMIN_USERNAME` and `DST_ADMIN_PASSWORD`; the API still uses `X-Admin-Key` internally, derived from those credentials after login.
 - `dst-master` / `dst-caves` are configured with `autostart=false` in supervisor; the admin owns their lifecycle through `supervisorctl`. Without a Klei token, the admin keeps both shards stopped.
 - Cluster config (`cluster.ini`, `Master/server.ini`, `Caves/server.ini`, `modoverrides.lua`, `dedicated_server_mods_setup.lua`) is written directly into `/data/cluster/Cluster_1/` by the admin; restart via the admin UI to apply.

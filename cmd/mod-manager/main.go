@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -29,6 +32,8 @@ type app struct {
 	dstDir         string
 	supervisorConf string
 	adminKey       string
+	adminUsername  string
+	adminPassword  string
 	assetVersion   string
 	client         *http.Client
 }
@@ -157,11 +162,18 @@ func main() {
 	dstDir := flag.String("dst-dir", "/data", "DST persistent data root (cluster/mods/ugc_mods/admin live here)")
 	supervisorConf := flag.String("supervisor-conf", "/opt/dst/runtime/supervisord.conf", "supervisord config used for supervisorctl")
 	adminKey := flag.String("admin-key", os.Getenv("DST_ADMIN_KEY"), "admin key for API requests")
+	adminUsername := flag.String("admin-username", os.Getenv("DST_ADMIN_USERNAME"), "admin login username")
+	adminPassword := flag.String("admin-password", os.Getenv("DST_ADMIN_PASSWORD"), "admin login password")
 	flag.Parse()
 
 	absRoot, err := resolveRoot(*root)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	effectiveAdminKey := *adminKey
+	if *adminUsername != "" && *adminPassword != "" {
+		effectiveAdminKey = deriveAdminKey(*adminUsername, *adminPassword)
 	}
 
 	adminStateDir := filepath.Join(*dstDir, "admin")
@@ -171,7 +183,9 @@ func main() {
 		settingsFile:   filepath.Join(adminStateDir, "server-settings.json"),
 		dstDir:         *dstDir,
 		supervisorConf: *supervisorConf,
-		adminKey:       *adminKey,
+		adminKey:       effectiveAdminKey,
+		adminUsername:  *adminUsername,
+		adminPassword:  *adminPassword,
 		assetVersion:   strconv.FormatInt(time.Now().Unix(), 10),
 		client: &http.Client{
 			Timeout: 45 * time.Second,
@@ -188,6 +202,7 @@ func main() {
 		w.Header().Set("Cache-Control", "no-store, max-age=0")
 		staticFiles.ServeHTTP(w, r)
 	}))
+	mux.HandleFunc("/api/auth/login", a.handleAuthLogin)
 	mux.HandleFunc("/api/auth/verify", a.handleAuthVerify)
 	mux.HandleFunc("/api/state", a.handleState)
 	mux.HandleFunc("/api/search", a.handleSearch)
@@ -208,6 +223,8 @@ func main() {
 	addr := fmt.Sprintf("%s:%d", *listen, *port)
 	if a.adminKey == "" {
 		log.Print("WARNING: admin key is empty; API is not protected")
+	} else if !a.passwordLoginEnabled() {
+		log.Print("WARNING: username/password login is disabled; using legacy admin key auth")
 	}
 	log.Printf("DST MOD manager listening on http://%s/", addr)
 	log.Fatal(http.ListenAndServe(addr, a.withAuth(mux)))
@@ -216,6 +233,10 @@ func main() {
 func (a *app) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if a.adminKey != "" && strings.HasPrefix(r.URL.Path, "/api/") {
+			if r.URL.Path == "/api/auth/login" {
+				next.ServeHTTP(w, r)
+				return
+			}
 			got := r.Header.Get("X-Admin-Key")
 			if got == "" {
 				got = r.URL.Query().Get("key")
@@ -227,6 +248,22 @@ func (a *app) withAuth(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func deriveAdminKey(username string, password string) string {
+	sum := sha256.Sum256([]byte("dst-waystone-admin-key:v1\x00" + username + "\x00" + password))
+	return hex.EncodeToString(sum[:])
+}
+
+func (a *app) passwordLoginEnabled() bool {
+	return a.adminUsername != "" && a.adminPassword != ""
+}
+
+func constantTimeEqualString(a string, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
 func resolveRoot(input string) (string, error) {
@@ -461,6 +498,34 @@ func (a *app) handleState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, s)
+}
+
+func (a *app) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !a.passwordLoginEnabled() {
+		http.Error(w, "未配置管理端用户名和密码", http.StatusServiceUnavailable)
+		return
+	}
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	username := strings.TrimSpace(req.Username)
+	if !constantTimeEqualString(username, a.adminUsername) || !constantTimeEqualString(req.Password, a.adminPassword) {
+		http.Error(w, "用户名或密码错误", http.StatusUnauthorized)
+		return
+	}
+	writeJSON(w, map[string]string{
+		"admin_key": a.adminKey,
+		"status":    "ok",
+	})
 }
 
 func (a *app) handleAuthVerify(w http.ResponseWriter, r *http.Request) {
@@ -749,9 +814,9 @@ func (a *app) handleSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{
-		"status":   "ok",
-		"state":    s,
-		"applied":  applied,
+		"status":  "ok",
+		"state":   s,
+		"applied": applied,
 	})
 }
 
@@ -2057,10 +2122,10 @@ server_port = 11000
 	}
 
 	return map[string]string{
-		"server_settings":    a.settingsFile,
-		"cluster_ini":        clusterPath,
-		"master_server_ini":  masterPath,
-		"caves_server_ini":   cavesPath,
+		"server_settings":   a.settingsFile,
+		"cluster_ini":       clusterPath,
+		"master_server_ini": masterPath,
+		"caves_server_ini":  cavesPath,
 	}, nil
 }
 

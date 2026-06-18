@@ -2,7 +2,8 @@ function dstAdminApp(options) {
   return {
     appId: options.appId,
     authenticated: false,
-    loginKey: "",
+    loginUsername: "",
+    loginPassword: "",
     authError: "",
     activeTab: "dashboard",
     busy: {},
@@ -35,20 +36,41 @@ function dstAdminApp(options) {
     pollTimer: null,
 
     async init() {
-      this.loginKey = localStorage.getItem("dstAdminKey") || "";
-      if (!this.loginKey) return;
-      await this.login(true);
+      const key = localStorage.getItem("dstAdminKey") || "";
+      if (key) await this.verifySession(true);
     },
 
     async login(silent = false) {
       this.authError = "";
-      if (!this.loginKey.trim()) {
-        this.authError = "请输入管理密钥";
+      const username = this.loginUsername.trim();
+      if (!username || !this.loginPassword) {
+        this.authError = "请输入用户名和密码";
         return;
       }
       try {
         await this.withBusy("auth", async () => {
-          localStorage.setItem("dstAdminKey", this.loginKey.trim());
+          const data = await this.api("/api/auth/login", {
+            method: "POST",
+            body: JSON.stringify({ username, password: this.loginPassword }),
+            skipAuth: true,
+          });
+          localStorage.setItem("dstAdminKey", data.admin_key || "");
+          this.authenticated = true;
+          await this.refreshAll(true);
+          if (!this.search.results.length) this.loadPopular(true);
+        });
+      } catch (error) {
+        localStorage.removeItem("dstAdminKey");
+        this.authenticated = false;
+        this.authError = "用户名或密码错误，请检查后重试。";
+        if (!silent) this.toast(error.message, "error");
+      }
+    },
+
+    async verifySession(silent = false) {
+      this.authError = "";
+      try {
+        await this.withBusy("auth", async () => {
           await this.api("/api/auth/verify");
           this.authenticated = true;
           await this.refreshAll(true);
@@ -57,27 +79,30 @@ function dstAdminApp(options) {
       } catch (error) {
         localStorage.removeItem("dstAdminKey");
         this.authenticated = false;
-        this.authError = "密钥验证失败，请检查后重试。";
-        if (!silent) this.toast(error.message, "error");
+        if (!silent) {
+          this.authError = "登录已失效，请重新登录。";
+          this.toast(error.message, "error");
+        }
       }
     },
 
     logout() {
       localStorage.removeItem("dstAdminKey");
-      this.loginKey = "";
+      this.loginPassword = "";
       this.authenticated = false;
       this.authError = "";
       this.stopPolling();
     },
 
     async api(path, options = {}) {
+      const { skipAuth = false, ...fetchOptions } = options;
       const headers = { "content-type": "application/json" };
-      const key = localStorage.getItem("dstAdminKey") || "";
+      const key = skipAuth ? "" : (localStorage.getItem("dstAdminKey") || "");
       if (key) headers["X-Admin-Key"] = key;
-      const response = await fetch(path, { headers, ...options });
+      const response = await fetch(path, { headers, ...fetchOptions });
       if (response.status === 401) {
         this.authenticated = false;
-        throw new Error("管理密钥无效或已过期");
+        throw new Error("登录凭据无效或已过期");
       }
       if (!response.ok) {
         const text = await response.text();

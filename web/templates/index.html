@@ -50,14 +50,19 @@
           <div class="inline-flex items-center justify-center w-16 h-12 bg-red border-2 border-red-dark rounded-md text-cream font-black">DST</div>
           <p class="mt-4 mb-1.5 text-xs font-extrabold tracking-[0.08em] text-red-dark">远程管理端</p>
           <h1 class="m-0 text-[28px] leading-[1.2]">DST Waystone</h1>
-          <p class="text-muted leading-[1.55]">输入管理密钥后进入控制台。这里可以查看服务器状态、管理 MOD、保存配置并重启服务。</p>
+          <p class="text-muted leading-[1.55]">使用管理账号进入控制台。这里可以查看服务器状态、管理 MOD、保存配置并重启服务。</p>
           <form class="grid gap-3.5 mt-6" @submit.prevent="login()">
             <label class="grid gap-[7px]">
-              <span class="text-wood-2 text-xs font-extrabold">管理密钥</span>
-              <input type="password" x-model="loginKey" placeholder="请输入 API Key" autocomplete="current-password"
+              <span class="text-wood-2 text-xs font-extrabold">用户名</span>
+              <input type="text" x-model="loginUsername" placeholder="请输入用户名" autocomplete="username"
                 class="bg-[#fff7de] border border-[rgba(75,42,25,0.42)] rounded-md text-ink px-3 py-2.5 min-w-0 w-full">
             </label>
-            <button class="btn btn-primary btn-wide" type="submit" :disabled="busy.auth === true || !loginKey.trim()">
+            <label class="grid gap-[7px]">
+              <span class="text-wood-2 text-xs font-extrabold">密码</span>
+              <input type="password" x-model="loginPassword" placeholder="请输入密码" autocomplete="current-password"
+                class="bg-[#fff7de] border border-[rgba(75,42,25,0.42)] rounded-md text-ink px-3 py-2.5 min-w-0 w-full">
+            </label>
+            <button class="btn btn-primary btn-wide" type="submit" :disabled="busy.auth === true || !loginUsername.trim() || !loginPassword">
               <span x-text="busy.auth ? '验证中' : '进入管理端'"></span>
             </button>
           </form>
