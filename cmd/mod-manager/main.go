@@ -1953,7 +1953,7 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 	checkedAt := time.Now().Format("2006-01-02 15:04:05")
 
 	out, err := a.supervisorctl("status")
-	logs := a.supervisorLogs()
+	logs := a.dstRuntimeLogs()
 	if err != nil && strings.TrimSpace(out) == "" {
 		return serverStatusResponse{
 			Status:    "error",
@@ -1991,6 +1991,23 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 		Services:  services,
 		Logs:      logs,
 	}, nil
+}
+
+func (a *app) dstRuntimeLogs() string {
+	parts := []string{a.supervisorLogs()}
+	if clusterDir, err := a.clusterDir(); err == nil {
+		for _, shard := range []string{"Master", "Caves"} {
+			logText := readTextIfExists(filepath.Join(clusterDir, shard, "server_log.txt"))
+			if strings.TrimSpace(logText) != "" {
+				parts = append(parts, tailText(logText, 12000))
+			}
+		}
+	}
+	text := strings.TrimSpace(strings.Join(parts, "\n"))
+	if len(text) > 30000 {
+		text = text[len(text)-30000:]
+	}
+	return text
 }
 
 func dstLogProblemMessage(logs string) string {
