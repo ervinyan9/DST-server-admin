@@ -1974,6 +1974,15 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 			Logs:      logs,
 		}, nil
 	}
+	if message := dstLogProblemMessage(logs); message != "" {
+		return serverStatusResponse{
+			Status:    "error",
+			Message:   message,
+			CheckedAt: checkedAt,
+			Services:  services,
+			Logs:      logs,
+		}, nil
+	}
 	status, message := summarizeServices(services)
 	return serverStatusResponse{
 		Status:    status,
@@ -1982,6 +1991,17 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 		Services:  services,
 		Logs:      logs,
 	}, nil
+}
+
+func dstLogProblemMessage(logs string) string {
+	switch {
+	case strings.Contains(logs, "E_EXPIRED_TOKEN") || strings.Contains(logs, "No auth token could be found"):
+		return "Klei cluster token 已失效或不可用，请重新生成并保存 token 后再重启服务器"
+	case strings.Contains(logs, "Could not load lua file scripts/main.lua"):
+		return "DST 服务端启动目录异常，无法加载 scripts/main.lua"
+	default:
+		return ""
+	}
 }
 
 func parseSupervisorStatus(data string) []serviceStatus {

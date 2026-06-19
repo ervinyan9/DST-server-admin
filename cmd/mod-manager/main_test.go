@@ -123,6 +123,18 @@ func TestParseSupervisorStatusMapsStopping(t *testing.T) {
 	}
 }
 
+func TestDSTLogProblemMessage(t *testing.T) {
+	if got := dstLogProblemMessage(`[200] Account Failed (6): "E_EXPIRED_TOKEN"`); !strings.Contains(got, "token") {
+		t.Fatalf("expired token message = %q, want token hint", got)
+	}
+	if got := dstLogProblemMessage("DoLuaFile Could not load lua file scripts/main.lua"); !strings.Contains(got, "scripts/main.lua") {
+		t.Fatalf("main.lua message = %q, want scripts/main.lua hint", got)
+	}
+	if got := dstLogProblemMessage("LOADING LUA SUCCESS"); got != "" {
+		t.Fatalf("success log message = %q, want empty", got)
+	}
+}
+
 func TestDSTServerBinaryPath(t *testing.T) {
 	t.Setenv("DST_GAME_DIR", "/tmp/dst-game")
 	want := "/tmp/dst-game/bin64/dontstarve_dedicated_server_nullrenderer_x64"
