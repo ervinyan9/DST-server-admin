@@ -2010,6 +2010,8 @@ func parseSupervisorStatus(data string) []serviceStatus {
 			mappedState = "running"
 		case "starting":
 			mappedState = "starting"
+		case "stopping":
+			mappedState = "stopping"
 		case "stopped", "exited":
 			mappedState = "stopped"
 		case "fatal", "backoff", "unknown":

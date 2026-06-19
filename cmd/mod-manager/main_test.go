@@ -113,6 +113,16 @@ func TestSupervisorStartAction(t *testing.T) {
 	}
 }
 
+func TestParseSupervisorStatusMapsStopping(t *testing.T) {
+	services := parseSupervisorStatus("dst-master STOPPING\n")
+	if len(services) != 1 {
+		t.Fatalf("service count = %d, want 1", len(services))
+	}
+	if services[0].State != "stopping" {
+		t.Fatalf("state = %q, want stopping", services[0].State)
+	}
+}
+
 func TestDSTServerBinaryPath(t *testing.T) {
 	t.Setenv("DST_GAME_DIR", "/tmp/dst-game")
 	want := "/tmp/dst-game/bin64/dontstarve_dedicated_server_nullrenderer_x64"
