@@ -89,7 +89,18 @@ type serverStatusResponse struct {
 	CheckedAt string          `json:"checked_at"`
 	Services  []serviceStatus `json:"services"`
 	Logs      string          `json:"logs"`
+	LogFiles  []logFile       `json:"log_files"`
 	Token     tokenStatus     `json:"token"`
+}
+
+type logFile struct {
+	Name      string `json:"name"`
+	Label     string `json:"label"`
+	Path      string `json:"path"`
+	Text      string `json:"text"`
+	UpdatedAt string `json:"updated_at"`
+	Size      int64  `json:"size"`
+	Truncated bool   `json:"truncated"`
 }
 
 type searchResponse struct {
@@ -2128,7 +2139,7 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 	checkedAt := time.Now().Format("2006-01-02 15:04:05")
 
 	out, err := a.supervisorctl("status")
-	logs := a.dstRuntimeLogs()
+	logs, logFiles := a.dstRuntimeLogs()
 	token := a.currentTokenStatus()
 	if err != nil && strings.TrimSpace(out) == "" {
 		return serverStatusResponse{
@@ -2137,6 +2148,7 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 			CheckedAt: checkedAt,
 			Services:  []serviceStatus{},
 			Logs:      logs,
+			LogFiles:  logFiles,
 			Token:     token,
 		}, nil
 	}
@@ -2150,6 +2162,7 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 			CheckedAt: checkedAt,
 			Services:  services,
 			Logs:      logs,
+			LogFiles:  logFiles,
 			Token:     token,
 		}, nil
 	}
@@ -2162,6 +2175,7 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 				CheckedAt: checkedAt,
 				Services:  services,
 				Logs:      logs,
+				LogFiles:  logFiles,
 				Token:     token,
 			}, nil
 		}
@@ -2176,25 +2190,62 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 		CheckedAt: checkedAt,
 		Services:  services,
 		Logs:      logs,
+		LogFiles:  logFiles,
 		Token:     token,
 	}, nil
 }
 
-func (a *app) dstRuntimeLogs() string {
-	parts := []string{a.supervisorLogs()}
-	if clusterDir, err := a.clusterDir(); err == nil {
-		for _, shard := range []string{"Master", "Caves"} {
-			logText := readTextIfExists(filepath.Join(clusterDir, shard, "server_log.txt"))
-			if strings.TrimSpace(logText) != "" {
-				parts = append(parts, tailText(logText, 12000))
-			}
+func (a *app) dstRuntimeLogs() (string, []logFile) {
+	files := a.dstLogFiles()
+	parts := make([]string, 0, len(files))
+	for _, file := range files {
+		if strings.TrimSpace(file.Text) == "" {
+			continue
 		}
+		parts = append(parts, file.Label+"\n"+file.Text)
 	}
-	text := strings.TrimSpace(strings.Join(parts, "\n"))
+	text := strings.TrimSpace(strings.Join(parts, "\n\n"))
 	if len(text) > 30000 {
 		text = text[len(text)-30000:]
 	}
-	return text
+	return text, files
+}
+
+func (a *app) dstLogFiles() []logFile {
+	files := []logFile{
+		{
+			Name:  "supervisor",
+			Label: "Supervisor",
+			Text:  a.supervisorLogs(),
+		},
+	}
+	if clusterDir, err := a.clusterDir(); err == nil {
+		for _, item := range []struct {
+			name  string
+			label string
+			path  string
+		}{
+			{name: "master", label: "Master server_log.txt", path: filepath.Join(clusterDir, "Master", "server_log.txt")},
+			{name: "caves", label: "Caves server_log.txt", path: filepath.Join(clusterDir, "Caves", "server_log.txt")},
+		} {
+			data, info, err := readLogTail(item.path, 12000)
+			entry := logFile{
+				Name:  item.name,
+				Label: item.label,
+				Path:  item.path,
+				Text:  strings.TrimSpace(string(data)),
+			}
+			if err == nil {
+				entry.UpdatedAt = info.ModTime().Format("2006-01-02 15:04:05")
+				entry.Size = info.Size()
+				entry.Truncated = info.Size() > 12000
+			} else if !os.IsNotExist(err) {
+				entry.Text = err.Error()
+			}
+			files = append(files, entry)
+		}
+	}
+	return files
 }
 
 func dstLogProblemMessage(logs string) string {
@@ -2481,13 +2532,21 @@ func (a *app) loadPlayersFromLogs() ([]playerInfo, error) {
 }
 
 func readTail(path string, maxBytes int64) ([]byte, time.Time, error) {
-	info, err := os.Stat(path)
+	data, info, err := readLogTail(path, maxBytes)
 	if err != nil {
 		return nil, time.Time{}, err
 	}
+	return data, info.ModTime(), nil
+}
+
+func readLogTail(path string, maxBytes int64) ([]byte, os.FileInfo, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, nil, err
+	}
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, time.Time{}, err
+		return nil, nil, err
 	}
 	defer file.Close()
 	size := info.Size()
@@ -2496,10 +2555,10 @@ func readTail(path string, maxBytes int64) ([]byte, time.Time, error) {
 		offset = size - maxBytes
 	}
 	if _, err := file.Seek(offset, io.SeekStart); err != nil {
-		return nil, time.Time{}, err
+		return nil, nil, err
 	}
 	data, err := io.ReadAll(file)
-	return data, info.ModTime(), err
+	return data, info, err
 }
 
 func extractPlayerName(line string, kuid string) string {

@@ -77,6 +77,43 @@ func TestTailText(t *testing.T) {
 	}
 }
 
+func TestDSTRuntimeLogsReturnsShardedTailMetadata(t *testing.T) {
+	dir := t.TempDir()
+	clusterDir := filepath.Join(dir, "cluster", "Cluster_1")
+	masterDir := filepath.Join(clusterDir, "Master")
+	cavesDir := filepath.Join(clusterDir, "Caves")
+	if err := os.MkdirAll(masterDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(cavesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(masterDir, "server_log.txt"), []byte(strings.Repeat("A", 13000)+"MASTER-END"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cavesDir, "server_log.txt"), []byte("CAVES-END"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a := &app{dstDir: dir}
+
+	logs, files := a.dstRuntimeLogs()
+	if !strings.Contains(logs, "MASTER-END") || !strings.Contains(logs, "CAVES-END") {
+		t.Fatalf("logs = %q, want shard tails", logs)
+	}
+	if len(files) != 3 {
+		t.Fatalf("log file count = %d, want 3", len(files))
+	}
+	if !files[1].Truncated {
+		t.Fatal("master log was not marked truncated")
+	}
+	if files[1].Size <= 12000 {
+		t.Fatalf("master log size = %d, want > 12000", files[1].Size)
+	}
+	if files[1].UpdatedAt == "" {
+		t.Fatal("master updated_at is empty")
+	}
+}
+
 func TestRunCommandOutputKillsProcessGroupOnTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()

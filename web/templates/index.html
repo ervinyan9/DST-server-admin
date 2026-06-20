@@ -227,7 +227,22 @@
                 </div>
                 <button class="btn btn-secondary" @click="loadServerStatus(false)" :disabled="busy.status === true">刷新日志</button>
               </div>
-              <pre class="log-box" x-text="status.logs || '暂无日志'"></pre>
+              <div class="grid gap-3" x-show="status.log_files && status.log_files.length">
+                <template x-for="file in status.log_files" :key="file.name">
+                  <article class="grid gap-2">
+                    <div class="flex items-center justify-between gap-2 max-[720px]:flex-col max-[720px]:items-start">
+                      <strong class="text-sm" x-text="file.label || file.name"></strong>
+                      <span class="text-xs text-muted">
+                        <span x-text="file.updated_at ? ('服务器时间 ' + file.updated_at) : '暂无文件时间'"></span>
+                        <span x-show="file.size"> · <span x-text="formatBytes(file.size)"></span></span>
+                        <span x-show="file.truncated"> · 仅显示尾部</span>
+                      </span>
+                    </div>
+                    <pre class="log-box" data-log-box x-text="file.text || '暂无日志'"></pre>
+                  </article>
+                </template>
+              </div>
+              <pre class="log-box" data-log-box x-show="!status.log_files || !status.log_files.length" x-text="status.logs || '暂无日志'"></pre>
             </section>
           </section>
 

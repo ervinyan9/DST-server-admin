@@ -19,7 +19,7 @@ function dstAdminApp(options) {
     },
     clusterToken: "",
     mods: [],
-    status: { status: "unknown", services: [], logs: "", token: { present: false, file_present: false, last_status: "missing" } },
+    status: { status: "unknown", services: [], logs: "", log_files: [], token: { present: false, file_present: false, last_status: "missing" } },
     players: [],
     diagnostics: {},
     manualId: "",
@@ -142,9 +142,11 @@ function dstAdminApp(options) {
         await this.withBusy("status", async () => {
           this.status = await this.api("/api/server/status");
         });
+        this.scrollLogsToBottom();
         if (!silent) this.toast(this.status.message || "服务器状态已刷新", "success");
       } catch (error) {
-        this.status = { status: "error", message: error.message, services: [], logs: error.message };
+        this.status = { status: "error", message: error.message, services: [], logs: error.message, log_files: [] };
+        this.scrollLogsToBottom();
         if (!silent) this.toast(error.message, "error");
       }
     },
@@ -533,6 +535,21 @@ function dstAdminApp(options) {
     formatDate(value) {
       if (!value) return "未知";
       return new Date(Number(value) * 1000).toLocaleDateString("zh-CN");
+    },
+
+    formatBytes(value) {
+      const size = Number(value || 0);
+      if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
+      if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`;
+      return `${size} B`;
+    },
+
+    scrollLogsToBottom() {
+      setTimeout(() => {
+        document.querySelectorAll("[data-log-box]").forEach((node) => {
+          node.scrollTop = node.scrollHeight;
+        });
+      }, 0);
     },
 
     toast(message, type = "success") {
