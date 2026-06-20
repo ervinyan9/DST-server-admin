@@ -6,6 +6,15 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      args:
+        GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
+        APT_MIRROR: ${APT_MIRROR:-http://mirrors.tencent.com/debian}
+        APT_SECURITY_MIRROR: ${APT_SECURITY_MIRROR:-http://mirrors.tencent.com/debian-security}
+        USE_BUILD_PROXY: ${USE_BUILD_PROXY:-false}
+        USE_APT_PROXY: ${USE_APT_PROXY:-false}
+        BUILD_HTTP_PROXY: ${BUILD_HTTP_PROXY:-}
+        BUILD_HTTPS_PROXY: ${BUILD_HTTPS_PROXY:-}
+        BUILD_NO_PROXY: ${BUILD_NO_PROXY:-localhost,127.0.0.1,::1}
     container_name: dst-waystone
     restart: unless-stopped
     env_file:
