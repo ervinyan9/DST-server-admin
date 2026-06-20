@@ -27,6 +27,8 @@ services:
       - "12347:12347/udp"
     volumes:
       - dst-data:/data
+      - dst-game:/opt/dst/game
 
 volumes:
   dst-data:
+  dst-game:

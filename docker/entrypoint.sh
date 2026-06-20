@@ -60,11 +60,9 @@ update_game_if_requested() {
     NO_PROXY="${NO_PROXY:-}" \
     no_proxy="${no_proxy:-}" \
     "$steamcmd" \
-    +@sSteamCmdForcePlatformType "${STEAMCMD_PLATFORM_TYPE:-linux}" \
-    +@sSteamCmdForcePlatformBitness "${STEAMCMD_PLATFORM_BITNESS:-64}" \
     +force_install_dir "$GAME_DIR" \
     +login anonymous \
-    +app_update 343050 \
+    +app_update 343050 validate \
     +quit; then
     log "DST server update failed; continuing with dst-admin only."
   fi
