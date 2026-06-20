@@ -180,6 +180,75 @@ func TestDSTServerBinaryPath(t *testing.T) {
 	}
 }
 
+func TestGenerateSettingsFilesPreservesCavesShardID(t *testing.T) {
+	dir := t.TempDir()
+	dstDir := filepath.Join(dir, "data")
+	clusterDir := filepath.Join(dstDir, "cluster", "Cluster_1")
+	cavesDir := filepath.Join(clusterDir, "Caves")
+	if err := os.MkdirAll(cavesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cavesPath := filepath.Join(cavesDir, "server.ini")
+	if err := os.WriteFile(cavesPath, []byte("[SHARD]\nis_master = false\nname = Caves\nid = 2407032924\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a := &app{
+		dstDir:       dstDir,
+		settingsFile: filepath.Join(dstDir, "admin", "server-settings.json"),
+	}
+	if _, err := a.generateSettingsFiles(serverSettings{ServerName: "EvanDST", MaxPlayers: 6, EnableCaves: true}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(cavesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "id = 2407032924") {
+		t.Fatalf("caves server.ini = %q, want preserved shard id", string(data))
+	}
+}
+
+func TestGenerateSettingsFilesDoesNotInventCavesShardID(t *testing.T) {
+	dir := t.TempDir()
+	a := &app{
+		dstDir:       filepath.Join(dir, "data"),
+		settingsFile: filepath.Join(dir, "data", "admin", "server-settings.json"),
+	}
+	if _, err := a.generateSettingsFiles(serverSettings{ServerName: "EvanDST", MaxPlayers: 6, EnableCaves: true}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "data", "cluster", "Cluster_1", "Caves", "server.ini"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "id =") {
+		t.Fatalf("caves server.ini = %q, want no generated shard id", string(data))
+	}
+}
+
+func TestRecordModDownloadStatusPersistsState(t *testing.T) {
+	dir := t.TempDir()
+	a := &app{
+		stateFile: filepath.Join(dir, "server-mods.json"),
+	}
+	if err := a.saveState(state{Mods: []mod{{ID: "123", Title: "Test", Enabled: true}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.recordModDownloadStatus("123", "error", "download failed", ""); err != nil {
+		t.Fatal(err)
+	}
+	s, err := a.loadState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Mods) != 1 {
+		t.Fatalf("mod count = %d, want 1", len(s.Mods))
+	}
+	if s.Mods[0].DownloadStatus != "error" || s.Mods[0].DownloadMessage != "download failed" {
+		t.Fatalf("download status = %+v, want persisted error", s.Mods[0])
+	}
+}
+
 func TestSearchLocalModsMatchesChineseDisplayTitle(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "root")

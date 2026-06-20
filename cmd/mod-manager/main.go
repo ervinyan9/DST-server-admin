@@ -59,21 +59,24 @@ type serverSettings struct {
 }
 
 type mod struct {
-	ID             string   `json:"id"`
-	Title          string   `json:"title"`
-	DisplayTitle   string   `json:"display_title"`
-	Category       string   `json:"category"`
-	Description    string   `json:"description"`
-	Preview        string   `json:"preview"`
-	FileURL        string   `json:"file_url"`
-	Subscriptions  int64    `json:"subscriptions"`
-	TimeUpdated    int64    `json:"time_updated"`
-	Tags           []string `json:"tags"`
-	ServerOnly     bool     `json:"server_only"`
-	ClientRequired bool     `json:"client_required"`
-	Installable    bool     `json:"installable"`
-	BlockedReason  string   `json:"blocked_reason,omitempty"`
-	Enabled        bool     `json:"enabled"`
+	ID              string   `json:"id"`
+	Title           string   `json:"title"`
+	DisplayTitle    string   `json:"display_title"`
+	Category        string   `json:"category"`
+	Description     string   `json:"description"`
+	Preview         string   `json:"preview"`
+	FileURL         string   `json:"file_url"`
+	Subscriptions   int64    `json:"subscriptions"`
+	TimeUpdated     int64    `json:"time_updated"`
+	Tags            []string `json:"tags"`
+	ServerOnly      bool     `json:"server_only"`
+	ClientRequired  bool     `json:"client_required"`
+	Installable     bool     `json:"installable"`
+	BlockedReason   string   `json:"blocked_reason,omitempty"`
+	Enabled         bool     `json:"enabled"`
+	DownloadStatus  string   `json:"download_status,omitempty"`
+	DownloadMessage string   `json:"download_message,omitempty"`
+	DownloadedAt    string   `json:"downloaded_at,omitempty"`
 }
 
 type playerInfo struct {
@@ -126,6 +129,9 @@ type modDiagnostic struct {
 	Paths              []string `json:"paths"`
 	Problems           []string `json:"problems"`
 	UpdatedAt          string   `json:"updated_at"`
+	DownloadStatus     string   `json:"download_status"`
+	DownloadMessage    string   `json:"download_message"`
+	DownloadedAt       string   `json:"downloaded_at"`
 }
 
 type modDownloadResponse struct {
@@ -191,6 +197,7 @@ var quotedNamePattern = regexp.MustCompile(`"([^"]{1,64})"`)
 var namedFieldPattern = regexp.MustCompile(`(?i)(?:name|player|username)\s*[:=]\s*['"]?([^,'"\]\)]+)`)
 var htmlTagPattern = regexp.MustCompile(`<[^>]+>`)
 var whitespacePattern = regexp.MustCompile(`\s+`)
+var shardIDPattern = regexp.MustCompile(`(?m)^\s*id\s*=\s*(\d+)\s*$`)
 
 func main() {
 	port := flag.Int("port", 8788, "HTTP port")
@@ -840,9 +847,11 @@ func (a *app) handleModDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := a.downloadWorkshopMod(req.ID)
 	if err != nil {
+		_ = a.recordModDownloadStatus(req.ID, "error", err.Error(), "")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	_ = a.recordModDownloadStatus(req.ID, result.Status, result.Message, time.Now().Format(time.RFC3339Nano))
 	writeJSON(w, result)
 }
 
@@ -1721,11 +1730,14 @@ func (a *app) modDiagnostics() ([]modDiagnostic, error) {
 
 func (a *app) modDiagnostic(item mod, setupText string, masterOverrides string, cavesOverrides string, logText string) modDiagnostic {
 	diag := modDiagnostic{
-		ID:           item.ID,
-		Title:        item.Title,
-		DisplayTitle: displayTitle(item.ID, item.Title),
-		Enabled:      item.Enabled,
-		UpdatedAt:    formatUnixTime(item.TimeUpdated),
+		ID:              item.ID,
+		Title:           item.Title,
+		DisplayTitle:    displayTitle(item.ID, item.Title),
+		Enabled:         item.Enabled,
+		UpdatedAt:       formatUnixTime(item.TimeUpdated),
+		DownloadStatus:  item.DownloadStatus,
+		DownloadMessage: item.DownloadMessage,
+		DownloadedAt:    item.DownloadedAt,
 	}
 	setupNeedle := fmt.Sprintf("ServerModSetup(%q)", item.ID)
 	overrideNeedle := "workshop-" + item.ID
@@ -1760,6 +1772,9 @@ func (a *app) modDiagnostic(item mod, setupText string, masterOverrides string, 
 	if item.Enabled && !diag.Downloaded {
 		diag.Problems = append(diag.Problems, "本地没有找到已下载的 Workshop 文件")
 	}
+	if strings.EqualFold(item.DownloadStatus, "error") && strings.TrimSpace(item.DownloadMessage) != "" {
+		diag.Problems = append(diag.Problems, "最近下载失败："+item.DownloadMessage)
+	}
 	if diag.LegacyPackage {
 		diag.Problems = append(diag.Problems, "下载结果是 legacy 包，当前 DST 容器可能无法直接加载")
 	}
@@ -1776,6 +1791,25 @@ func (a *app) modDiagnostic(item mod, setupText string, masterOverrides string, 
 		}
 	}
 	return diag
+}
+
+func (a *app) recordModDownloadStatus(id string, status string, message string, downloadedAt string) error {
+	s, err := a.loadState()
+	if err != nil {
+		return err
+	}
+	for i := range s.Mods {
+		if s.Mods[i].ID != id {
+			continue
+		}
+		s.Mods[i].DownloadStatus = status
+		s.Mods[i].DownloadMessage = tailText(strings.TrimSpace(message), 1000)
+		if downloadedAt != "" {
+			s.Mods[i].DownloadedAt = downloadedAt
+		}
+		return a.saveState(s)
+	}
+	return nil
 }
 
 func readTextIfExists(path string) string {
@@ -1835,7 +1869,6 @@ func (a *app) downloadWorkshopMod(id string) (modDownloadResponse, error) {
 	cmd := exec.CommandContext(
 		ctx,
 		steamcmdBin,
-		"+@sSteamCmdForcePlatformType", "linux",
 		"+force_install_dir", ugcRoot,
 		"+login", "anonymous",
 		"+workshop_download_item", appID, id,
@@ -1905,10 +1938,6 @@ func (a *app) syncEnabledMods() (modSyncResponse, error) {
 	if err != nil {
 		return modSyncResponse{}, err
 	}
-	output, err := a.updateServerMods()
-	if err != nil {
-		return modSyncResponse{}, fmt.Errorf("同步 MOD 失败：%v\n%s", err, tailText(output, 4000))
-	}
 	diagnostics, err := a.modDiagnostics()
 	if err != nil {
 		return modSyncResponse{}, err
@@ -1918,6 +1947,7 @@ func (a *app) syncEnabledMods() (modSyncResponse, error) {
 		diagByID[diag.ID] = diag
 	}
 	downloads := make([]modSyncDownload, 0, len(enabled))
+	outputParts := []string{}
 	downloaded := 0
 	failed := 0
 	for _, item := range enabled {
@@ -1927,28 +1957,64 @@ func (a *app) syncEnabledMods() (modSyncResponse, error) {
 			Title:  displayTitle(item.ID, item.Title),
 			Status: "ok",
 		}
-		if diag.Downloaded {
+		if diag.Downloaded && !diag.Outdated {
 			row.Message = "文件已存在"
 			downloaded++
 		} else {
-			row.Status = "warning"
-			row.Message = "未找到下载文件"
-			failed++
+			reason := "未找到下载文件"
+			if diag.Outdated {
+				reason = "本地文件早于 Workshop 更新时间"
+			}
+			result, downloadErr := a.downloadWorkshopMod(item.ID)
+			if downloadErr != nil {
+				row.Status = "error"
+				row.Message = reason + "；自动下载失败：" + downloadErr.Error()
+				failed++
+				_ = a.recordModDownloadStatus(item.ID, "error", row.Message, "")
+				outputParts = append(outputParts, fmt.Sprintf("[%s] %s", item.ID, row.Message))
+			} else {
+				row.Status = result.Status
+				row.Message = result.Message
+				if result.Status == "ok" || result.Status == "legacy" {
+					downloaded++
+				} else {
+					failed++
+				}
+				_ = a.recordModDownloadStatus(item.ID, result.Status, result.Message, time.Now().Format(time.RFC3339Nano))
+				if strings.TrimSpace(result.Output) != "" {
+					outputParts = append(outputParts, fmt.Sprintf("[%s]\n%s", item.ID, result.Output))
+				}
+			}
 		}
 		downloads = append(downloads, row)
 	}
 	if failed > 0 {
+		diagnostics, err = a.modDiagnostics()
+		if err != nil {
+			return modSyncResponse{}, err
+		}
 		return modSyncResponse{
 			Status:      "warning",
-			Message:     fmt.Sprintf("MOD 更新完成，但仍有 %d 个启用 MOD 没有找到文件，未重启服务器", failed),
+			Message:     fmt.Sprintf("同步完成，但有 %d 个启用 MOD 下载失败，未重启服务器", failed),
 			Enabled:     len(enabled),
 			Downloaded:  downloaded,
 			Failed:      failed,
-			Output:      tailText(output, 4000),
+			Output:      tailText(strings.Join(outputParts, "\n\n"), 4000),
 			Downloads:   downloads,
 			Applied:     applied,
 			Diagnostics: diagnostics,
 		}, nil
+	}
+	output, updateErr := a.updateServerMods()
+	if strings.TrimSpace(output) != "" {
+		outputParts = append(outputParts, output)
+	}
+	if updateErr != nil {
+		return modSyncResponse{}, fmt.Errorf("同步 MOD 失败：%v\n%s", updateErr, tailText(strings.Join(outputParts, "\n\n"), 4000))
+	}
+	diagnostics, err = a.modDiagnostics()
+	if err != nil {
+		return modSyncResponse{}, err
 	}
 	restart, err := a.restartDSTServices()
 	if err != nil {
@@ -1960,7 +2026,7 @@ func (a *app) syncEnabledMods() (modSyncResponse, error) {
 		Enabled:     len(enabled),
 		Downloaded:  downloaded,
 		Failed:      failed,
-		Output:      tailText(output, 4000),
+		Output:      tailText(strings.Join(outputParts, "\n\n"), 4000),
 		Downloads:   downloads,
 		Restart:     restart,
 		Applied:     applied,
@@ -2660,9 +2726,15 @@ server_port = 10999
 	}
 
 	cavesPath := filepath.Join(clusterDir, "Caves", "server.ini")
+	cavesID := readShardID(cavesPath)
+	cavesIDLine := ""
+	if cavesID != "" {
+		cavesIDLine = "id = " + cavesID + "\n"
+	}
 	cavesINI := `[SHARD]
 is_master = false
 name = Caves
+` + cavesIDLine + `
 
 [STEAM]
 authentication_port = 8769
@@ -2681,6 +2753,18 @@ server_port = 11000
 		"master_server_ini": masterPath,
 		"caves_server_ini":  cavesPath,
 	}, nil
+}
+
+func readShardID(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	match := shardIDPattern.FindStringSubmatch(string(data))
+	if len(match) < 2 {
+		return ""
+	}
+	return match[1]
 }
 
 func boolString(value bool) string {

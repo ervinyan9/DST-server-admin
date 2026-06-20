@@ -439,6 +439,8 @@
                         <span class="grid flex-1 gap-1">
                           <strong x-text="item.display_title || item.title || ('Workshop ' + item.id)"></strong>
                           <small class="text-muted" x-text="item.client_required ? '所有客户端也必须安装' : '服务端安装即可'"></small>
+                          <small class="text-red-dark" x-show="item.download_status === 'error'" x-text="item.download_message || '下载失败'"></small>
+                          <small class="text-muted" x-show="item.download_status && item.download_status !== 'error'" x-text="'下载状态：' + item.download_status"></small>
                         </span>
                       </label>
                       <div class="flex flex-wrap items-center justify-end gap-2 mt-2.5 max-[720px]:flex-col max-[720px]:items-stretch">
@@ -455,6 +457,7 @@
                             <span :class="diagClass(diagnostics[item.id].configured_override)">启用配置</span>
                             <span :class="diagClass(diagnostics[item.id].downloaded)">文件存在</span>
                             <span :class="diagClass(diagnostics[item.id].loaded_in_logs)">日志加载</span>
+                            <span x-show="diagnostics[item.id].download_status" :class="statusBadgeClass(diagnostics[item.id].download_status)" x-text="diagnostics[item.id].download_status"></span>
                           </div>
                           <ul class="text-red-dark text-xs mt-2 mb-0 pl-4.5 list-disc" x-show="diagnostics[item.id].problems && diagnostics[item.id].problems.length">
                             <template x-for="problem in diagnostics[item.id].problems" :key="problem">

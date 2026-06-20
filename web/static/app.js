@@ -227,6 +227,7 @@ function dstAdminApp(options) {
             this.diagnostics = next;
           }
           this.toast(data.message || "MOD 已同步", data.status === "ok" ? "success" : "warning");
+          await this.loadState();
           await this.loadServerStatus(true);
           this.startPolling();
         });
@@ -367,9 +368,12 @@ function dstAdminApp(options) {
             body: JSON.stringify({ id }),
           });
           if (data.diagnostic) this.diagnostics[id] = data.diagnostic;
+          await this.loadState();
           this.toast(data.message || `MOD ${id} 下载完成`, data.status === "ok" ? "success" : "warning");
         });
       } catch (error) {
+        await this.loadState();
+        await this.loadDiagnostics();
         this.toast(error.message, "error");
       }
     },
