@@ -121,8 +121,6 @@ RUN set -eux; \
     fi; \
     if [ "${DST_DOWNLOAD_AT_BUILD}" = "true" ]; then \
       "${STEAMCMDDIR}/steamcmd.sh" \
-        +@sSteamCmdForcePlatformType "${STEAMCMD_PLATFORM_TYPE}" \
-        +@sSteamCmdForcePlatformBitness "${STEAMCMD_PLATFORM_BITNESS}" \
         +force_install_dir "${DST_GAME_DIR}" \
         +login anonymous \
         +app_update "${STEAM_APPID}" validate \
