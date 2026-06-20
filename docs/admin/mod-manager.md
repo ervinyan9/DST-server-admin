@@ -15,9 +15,10 @@
 | --- | --- |
 | 启动参数 | `-root=/opt/dst/admin -dst-dir=/data -listen=0.0.0.0 -port=8788 -supervisor-conf=/opt/dst/runtime/supervisord.conf` |
 | 静态资源 | `/opt/dst/admin/web/` |
-| 状态文件 | `/data/admin/server-mods.json`、`/data/admin/server-settings.json` |
+| 状态数据库 | `/data/admin/dst-admin.db`（SQLite 嵌入式文件，包含设置、MOD 列表、Klei token 原文和运行状态） |
+| 旧状态文件 | `/data/admin/server-mods.json`、`/data/admin/server-settings.json`（首次启动时迁移来源，不再作为主存储） |
 | Cluster 目录 | `/data/cluster/Cluster_1/`（Master、Caves、mods 子目录） |
-| Klei token | `/data/cluster/Cluster_1/cluster_token.txt`（mode 0600） |
+| Klei token | SQLite 原文保存，并写回 `/data/cluster/Cluster_1/cluster_token.txt`（mode 0600，不通过 API 回显） |
 | MOD UGC | `/data/ugc_mods/content/322330/<id>` |
 | SteamCMD | `${STEAMCMDDIR:-/home/steam/steamcmd}/steamcmd.sh` |
 | 进程控制 | `supervisorctl -c /opt/dst/runtime/supervisord.conf {restart,start,stop} {dst-master,dst-caves}` |
@@ -28,8 +29,8 @@
 
 管理端不再区分 “保存草稿” / “生成本地配置” / “保存到服务器” 三步。所有写入路径走同一个 `applyConfig()`：
 
-- `POST /api/settings`：先写状态文件，再立刻把 `cluster.ini`、`Master/server.ini`、`Caves/server.ini` 落到 cluster 目录。
-- `POST /api/mods`、`POST /api/mods/toggle`、`POST /api/mods/remove`：先更新状态，再立刻重新生成 `dedicated_server_mods_setup.lua` 与 `Master|Caves/modoverrides.lua`。
+- `POST /api/settings`：先写 SQLite，再立刻把 `cluster.ini`、`Master/server.ini`、`Caves/server.ini` 落到 cluster 目录。
+- `POST /api/mods`、`POST /api/mods/toggle`、`POST /api/mods/remove`：先更新 SQLite，再立刻重新生成 `dedicated_server_mods_setup.lua` 与 `Master|Caves/modoverrides.lua`。
 
 返回结构含 `state`（最新设置）和 `applied.written`（本次写入的文件清单），前端据此提示。
 
@@ -39,14 +40,14 @@
 POST /api/cluster-token  body: { "token": "pds-..." }
 ```
 
-写入 `/data/cluster/Cluster_1/cluster_token.txt`，权限 0600，不回显。也可在容器启动时通过 `DST_CLUSTER_TOKEN` 环境变量首次写入（仅当文件不存在时）。
+写入 SQLite 和 `/data/cluster/Cluster_1/cluster_token.txt`，文件权限 0600，不回显。状态接口只返回是否存在、指纹、保存时间和最近校验结果。管理端启动时如果发现 SQLite 中已有 token 但 `cluster_token.txt` 缺失，会自动恢复写回。
 
 ## 启停与状态
 
 | 路由 | 行为 |
 | --- | --- |
 | `POST /api/restart` | `supervisorctl restart dst-master`；按 `enable_caves` 决定 `dst-caves` 走 `restart` 还是 `stop` |
-| `GET /api/server/status` | 解析 `supervisorctl status`，附最近日志（supervisor 转发到 stdout） |
+| `GET /api/server/status` | 解析 `supervisorctl status`，附最近日志和 token 状态；发现 `E_EXPIRED_TOKEN` 等日志时记录到 SQLite |
 
 前端在重启后会每 5 秒轮询一次 `status`，最长约 2 分钟。
 

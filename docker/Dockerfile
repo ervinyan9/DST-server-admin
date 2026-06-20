@@ -6,10 +6,23 @@ FROM --platform=$BUILDPLATFORM golang:1.22-bookworm AS admin-builder
 
 WORKDIR /src
 COPY go.mod ./
+COPY go.sum ./
 COPY cmd ./cmd
 COPY web ./web
 COPY mods ./mods
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/mod-manager ./cmd/mod-manager
+ARG USE_BUILD_PROXY=false
+ARG BUILD_HTTP_PROXY=""
+ARG BUILD_HTTPS_PROXY=""
+ARG BUILD_NO_PROXY=""
+ARG GOPROXY="https://proxy.golang.org,direct"
+RUN set -eux; \
+    if [ "${USE_BUILD_PROXY}" = "true" ]; then \
+      export HTTP_PROXY="${BUILD_HTTP_PROXY}" HTTPS_PROXY="${BUILD_HTTPS_PROXY}" \
+        http_proxy="${BUILD_HTTP_PROXY}" https_proxy="${BUILD_HTTPS_PROXY}" \
+        NO_PROXY="${BUILD_NO_PROXY}" no_proxy="${BUILD_NO_PROXY}"; \
+    fi; \
+    export GOPROXY="${GOPROXY}"; \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/mod-manager ./cmd/mod-manager
 
 FROM --platform=$DST_IMAGE_PLATFORM cm2network/steamcmd:root
 

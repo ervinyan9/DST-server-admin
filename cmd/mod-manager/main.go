@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -38,6 +39,8 @@ type app struct {
 	adminPassword  string
 	assetVersion   string
 	client         *http.Client
+	dbPath         string
+	db             *sql.DB
 }
 
 type state struct {
@@ -86,6 +89,7 @@ type serverStatusResponse struct {
 	CheckedAt string          `json:"checked_at"`
 	Services  []serviceStatus `json:"services"`
 	Logs      string          `json:"logs"`
+	Token     tokenStatus     `json:"token"`
 }
 
 type searchResponse struct {
@@ -119,6 +123,26 @@ type modDownloadResponse struct {
 	ID         string        `json:"id"`
 	Output     string        `json:"output"`
 	Diagnostic modDiagnostic `json:"diagnostic"`
+}
+
+type modSyncResponse struct {
+	Status      string              `json:"status"`
+	Message     string              `json:"message"`
+	Enabled     int                 `json:"enabled"`
+	Downloaded  int                 `json:"downloaded"`
+	Failed      int                 `json:"failed"`
+	Output      string              `json:"output"`
+	Downloads   []modSyncDownload   `json:"downloads"`
+	Restart     []map[string]string `json:"restart"`
+	Applied     map[string]any      `json:"applied"`
+	Diagnostics []modDiagnostic     `json:"diagnostics"`
+}
+
+type modSyncDownload struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
 }
 
 type serviceStatus struct {
@@ -183,6 +207,7 @@ func main() {
 		root:           absRoot,
 		stateFile:      filepath.Join(adminStateDir, "server-mods.json"),
 		settingsFile:   filepath.Join(adminStateDir, "server-settings.json"),
+		dbPath:         filepath.Join(adminStateDir, "dst-admin.db"),
 		dstDir:         *dstDir,
 		supervisorConf: *supervisorConf,
 		adminKey:       effectiveAdminKey,
@@ -214,6 +239,7 @@ func main() {
 	mux.HandleFunc("/api/mods/remove", a.handleRemoveMod)
 	mux.HandleFunc("/api/mods/diagnostics", a.handleModDiagnostics)
 	mux.HandleFunc("/api/mods/download", a.handleModDownload)
+	mux.HandleFunc("/api/mods/sync", a.handleModSync)
 	mux.HandleFunc("/api/settings", a.handleSettings)
 	mux.HandleFunc("/api/cluster-token", a.handleClusterToken)
 	mux.HandleFunc("/api/restart", a.handleRestartServer)
@@ -340,6 +366,21 @@ func (a *app) ensureState() error {
 			return err
 		}
 	}
+	if a.dbPath != "" {
+		if err := a.ensureStore(); err != nil {
+			return err
+		}
+		if err := a.importLegacyStateIfEmpty(); err != nil {
+			return err
+		}
+		if err := a.restoreClusterTokenFile(); err != nil {
+			return err
+		}
+		if _, err := a.applyConfig(); err != nil {
+			return err
+		}
+		return nil
+	}
 	if _, err := os.Stat(a.stateFile); os.IsNotExist(err) {
 		return a.saveState(state{Mods: []mod{}})
 	}
@@ -352,6 +393,9 @@ func (a *app) ensureState() error {
 }
 
 func (a *app) loadState() (state, error) {
+	if a.dbPath != "" {
+		return a.loadStateFromStore()
+	}
 	s, err := a.loadStateFromMainFile()
 	if err != nil {
 		return s, err
@@ -410,6 +454,9 @@ func (a *app) loadSettings(fallback serverSettings) (serverSettings, error) {
 
 func (a *app) saveSettingsCache(settings serverSettings) error {
 	settings = normalizeSettings(settings)
+	if a.dbPath != "" {
+		return a.saveSettingsToStore(settings)
+	}
 	if err := os.MkdirAll(filepath.Dir(a.settingsFile), 0o755); err != nil {
 		return err
 	}
@@ -456,6 +503,13 @@ func normalizeGameMode(value string) string {
 }
 
 func (a *app) saveState(s state) error {
+	if a.dbPath != "" {
+		sort.SliceStable(s.Mods, func(i, j int) bool {
+			return strings.ToLower(s.Mods[i].Title) < strings.ToLower(s.Mods[j].Title)
+		})
+		s.Settings = normalizeSettings(s.Settings)
+		return a.saveStateToStore(s)
+	}
 	if cached, err := a.loadSettings(s.Settings); err == nil {
 		s.Settings = cached
 	} else {
@@ -781,6 +835,19 @@ func (a *app) handleModDownload(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+func (a *app) handleModSync(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	result, err := a.syncEnabledMods()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, result)
+}
+
 func (a *app) handleSettings(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -835,30 +902,9 @@ func (a *app) handleRestartServer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	s, err := a.loadState()
+	results, err := a.restartDSTServices()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	results := []map[string]string{}
-	services, statusErr := a.currentSupervisorServices()
-	if statusErr != nil {
-		http.Error(w, fmt.Sprintf("读取 supervisor 状态失败：%v", statusErr), http.StatusInternalServerError)
-		return
-	}
-	masterAction := supervisorStartAction("dst-master", services)
-	masterOut, masterErr := a.supervisorctl(masterAction, "dst-master")
-	results = append(results, map[string]string{"action": masterAction + " dst-master", "output": masterOut, "error": errString(masterErr)})
-	if s.Settings.EnableCaves {
-		cavesAction := supervisorStartAction("dst-caves", services)
-		out, err := a.supervisorctl(cavesAction, "dst-caves")
-		results = append(results, map[string]string{"action": cavesAction + " dst-caves", "output": out, "error": errString(err)})
-	} else {
-		out, err := a.supervisorctl("stop", "dst-caves")
-		results = append(results, map[string]string{"action": "stop dst-caves", "output": out, "error": errString(err)})
-	}
-	if masterErr != nil {
-		http.Error(w, fmt.Sprintf("重启失败：%v\n%s", masterErr, masterOut), http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, map[string]any{
@@ -884,6 +930,12 @@ func (a *app) handleClusterToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "token 不能为空", http.StatusBadRequest)
 		return
 	}
+	if a.dbPath != "" {
+		if err := a.saveClusterTokenToStore(token); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
 	clusterDir, err := a.clusterDir()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -898,9 +950,16 @@ func (a *app) handleClusterToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, map[string]string{
+	if a.dbPath != "" {
+		if err := a.markClusterTokenFileWritten(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	writeJSON(w, map[string]any{
 		"status": "ok",
 		"path":   tokenPath,
+		"token":  a.currentTokenStatus(),
 	})
 }
 
@@ -1808,6 +1867,122 @@ func (a *app) downloadWorkshopMod(id string) (modDownloadResponse, error) {
 	}, nil
 }
 
+func (a *app) syncEnabledMods() (modSyncResponse, error) {
+	if a.dstDir == "" {
+		return modSyncResponse{}, fmt.Errorf("管理端未配置 -dst-dir，无法同步 MOD")
+	}
+	if !a.clusterTokenPresent() {
+		return modSyncResponse{}, fmt.Errorf("未配置 Klei cluster token，无法同步 MOD")
+	}
+	if err := a.ensureDSTServerBinary(); err != nil {
+		return modSyncResponse{}, err
+	}
+	s, err := a.loadState()
+	if err != nil {
+		return modSyncResponse{}, err
+	}
+	enabled := make([]mod, 0, len(s.Mods))
+	for _, item := range s.Mods {
+		if item.Enabled && numericPattern.MatchString(item.ID) {
+			enabled = append(enabled, item)
+		}
+	}
+	if len(enabled) == 0 {
+		return modSyncResponse{}, fmt.Errorf("没有启用的 MOD 可同步")
+	}
+	applied, err := a.applyConfig()
+	if err != nil {
+		return modSyncResponse{}, err
+	}
+	output, err := a.updateServerMods()
+	if err != nil {
+		return modSyncResponse{}, fmt.Errorf("同步 MOD 失败：%v\n%s", err, tailText(output, 4000))
+	}
+	diagnostics, err := a.modDiagnostics()
+	if err != nil {
+		return modSyncResponse{}, err
+	}
+	diagByID := map[string]modDiagnostic{}
+	for _, diag := range diagnostics {
+		diagByID[diag.ID] = diag
+	}
+	downloads := make([]modSyncDownload, 0, len(enabled))
+	downloaded := 0
+	failed := 0
+	for _, item := range enabled {
+		diag := diagByID[item.ID]
+		row := modSyncDownload{
+			ID:     item.ID,
+			Title:  displayTitle(item.ID, item.Title),
+			Status: "ok",
+		}
+		if diag.Downloaded {
+			row.Message = "文件已存在"
+			downloaded++
+		} else {
+			row.Status = "warning"
+			row.Message = "未找到下载文件"
+			failed++
+		}
+		downloads = append(downloads, row)
+	}
+	if failed > 0 {
+		return modSyncResponse{
+			Status:      "warning",
+			Message:     fmt.Sprintf("MOD 更新完成，但仍有 %d 个启用 MOD 没有找到文件，未重启服务器", failed),
+			Enabled:     len(enabled),
+			Downloaded:  downloaded,
+			Failed:      failed,
+			Output:      tailText(output, 4000),
+			Downloads:   downloads,
+			Applied:     applied,
+			Diagnostics: diagnostics,
+		}, nil
+	}
+	restart, err := a.restartDSTServices()
+	if err != nil {
+		return modSyncResponse{}, err
+	}
+	return modSyncResponse{
+		Status:      "ok",
+		Message:     fmt.Sprintf("已同步 %d 个启用 MOD，并重载 DST 服务", len(enabled)),
+		Enabled:     len(enabled),
+		Downloaded:  downloaded,
+		Failed:      failed,
+		Output:      tailText(output, 4000),
+		Downloads:   downloads,
+		Restart:     restart,
+		Applied:     applied,
+		Diagnostics: diagnostics,
+	}, nil
+}
+
+func (a *app) updateServerMods() (string, error) {
+	gameDir := strings.TrimSpace(os.Getenv("DST_GAME_DIR"))
+	if gameDir == "" {
+		gameDir = "/opt/dst/game"
+	}
+	timeout := workshopDownloadTimeout()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(
+		ctx,
+		dstServerBinaryPath(),
+		"-only_update_server_mods",
+		"-ugc_directory", filepath.Join(a.dstDir, "ugc_mods"),
+		"-persistent_storage_root", a.dstDir,
+		"-conf_dir", "cluster",
+		"-cluster", "Cluster_1",
+	)
+	cmd.Dir = filepath.Join(gameDir, "bin64")
+	out, err := runCommandOutput(ctx, cmd)
+	output := string(out)
+	if ctx.Err() == context.DeadlineExceeded {
+		return output, fmt.Errorf("DST MOD 更新超时（%s）", timeout)
+	}
+	return output, err
+}
+
 func tailText(input string, maxBytes int) string {
 	if maxBytes <= 0 || len(input) <= maxBytes {
 		return input
@@ -1954,6 +2129,7 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 
 	out, err := a.supervisorctl("status")
 	logs := a.dstRuntimeLogs()
+	token := a.currentTokenStatus()
 	if err != nil && strings.TrimSpace(out) == "" {
 		return serverStatusResponse{
 			Status:    "error",
@@ -1961,27 +2137,37 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 			CheckedAt: checkedAt,
 			Services:  []serviceStatus{},
 			Logs:      logs,
+			Token:     token,
 		}, nil
 	}
 
 	services := parseSupervisorStatus(out)
 	if !a.clusterTokenPresent() {
+		token = a.recordTokenStatus("missing", "未配置 Klei cluster token")
 		return serverStatusResponse{
 			Status:    "stopped",
 			Message:   "未配置 Klei cluster token，DST 服务尚未启动",
 			CheckedAt: checkedAt,
 			Services:  services,
 			Logs:      logs,
+			Token:     token,
 		}, nil
 	}
 	if message := dstLogProblemMessage(logs); message != "" {
-		return serverStatusResponse{
-			Status:    "error",
-			Message:   message,
-			CheckedAt: checkedAt,
-			Services:  services,
-			Logs:      logs,
-		}, nil
+		if a.tokenLogProblemIsCurrent(token) {
+			token = a.recordTokenStatus("error", message)
+			return serverStatusResponse{
+				Status:    "error",
+				Message:   message,
+				CheckedAt: checkedAt,
+				Services:  services,
+				Logs:      logs,
+				Token:     token,
+			}, nil
+		}
+	}
+	if a.tokenLogIsCurrent(token) {
+		token = a.recordTokenStatus("ok", "未检测到 Klei token 错误")
 	}
 	status, message := summarizeServices(services)
 	return serverStatusResponse{
@@ -1990,6 +2176,7 @@ func (a *app) serverStatus() (serverStatusResponse, error) {
 		CheckedAt: checkedAt,
 		Services:  services,
 		Logs:      logs,
+		Token:     token,
 	}, nil
 }
 
@@ -2135,6 +2322,33 @@ func (a *app) currentSupervisorServices() ([]serviceStatus, error) {
 		return nil, err
 	}
 	return parseSupervisorStatus(out), nil
+}
+
+func (a *app) restartDSTServices() ([]map[string]string, error) {
+	s, err := a.loadState()
+	if err != nil {
+		return nil, err
+	}
+	services, err := a.currentSupervisorServices()
+	if err != nil {
+		return nil, fmt.Errorf("读取 supervisor 状态失败：%v", err)
+	}
+	results := []map[string]string{}
+	masterAction := supervisorStartAction("dst-master", services)
+	masterOut, masterErr := a.supervisorctl(masterAction, "dst-master")
+	results = append(results, map[string]string{"action": masterAction + " dst-master", "output": masterOut, "error": errString(masterErr)})
+	if s.Settings.EnableCaves {
+		cavesAction := supervisorStartAction("dst-caves", services)
+		out, err := a.supervisorctl(cavesAction, "dst-caves")
+		results = append(results, map[string]string{"action": cavesAction + " dst-caves", "output": out, "error": errString(err)})
+	} else {
+		out, err := a.supervisorctl("stop", "dst-caves")
+		results = append(results, map[string]string{"action": "stop dst-caves", "output": out, "error": errString(err)})
+	}
+	if masterErr != nil {
+		return results, fmt.Errorf("重启失败：%v\n%s", masterErr, masterOut)
+	}
+	return results, nil
 }
 
 func supervisorStartAction(name string, services []serviceStatus) string {
@@ -2436,6 +2650,11 @@ func (a *app) supervisorctl(args ...string) (string, error) {
 }
 
 func (a *app) clusterTokenPresent() bool {
+	if a.dbPath != "" {
+		if token, err := a.loadClusterTokenPlaintext(); err == nil && strings.TrimSpace(token) != "" {
+			return true
+		}
+	}
 	clusterDir, err := a.clusterDir()
 	if err != nil {
 		return false

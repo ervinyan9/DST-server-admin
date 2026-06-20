@@ -26,6 +26,7 @@
 - `.code/context/acceptance.md`：当前阶段验收标准。
 - `.code/knowledge/dst-mod-development/README.md`：饥荒 MOD 开发知识库入口。
 - `.code/skills/dst-mod-development.md`：饥荒 MOD 开发技能卡。
+- `.code/skills/production-deploy.md`：生产构建部署、备份、验收和回滚技能卡。
 
 ## 常用验证
 
@@ -37,3 +38,8 @@ docker build -f docker/Dockerfile -t dst-waystone:local .
 ```
 
 按任务风险选择验证粒度。文档和上下文改动至少做路径存在性检查、旧口径检索和敏感信息检索。
+
+## Repo-local 技能路由
+
+- 涉及生产部署、生产构建、发布、回滚、部署 SOP 或 `make prod-deploy` 时，先阅读 `.code/skills/production-deploy.md`。
+- 涉及 DST MOD 开发、MOD 整合、资源减负、Lua 模块、游戏内 UI、RPC 或管理员命令时，先阅读 `.code/skills/dst-mod-development.md`。

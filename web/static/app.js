@@ -19,7 +19,7 @@ function dstAdminApp(options) {
     },
     clusterToken: "",
     mods: [],
-    status: { status: "unknown", services: [], logs: "" },
+    status: { status: "unknown", services: [], logs: "", token: { present: false, file_present: false, last_status: "missing" } },
     players: [],
     diagnostics: {},
     manualId: "",
@@ -187,10 +187,11 @@ function dstAdminApp(options) {
       }
       try {
         await this.withBusy("token", async () => {
-          await this.api("/api/cluster-token", {
+          const data = await this.api("/api/cluster-token", {
             method: "POST",
             body: JSON.stringify({ token }),
           });
+          if (data.token) this.status = { ...this.status, token: data.token };
         });
         this.clusterToken = "";
         this.toast("Klei cluster token 已写入，可点击重启启动 DST", "success");
@@ -205,6 +206,25 @@ function dstAdminApp(options) {
         await this.withBusy("restart", async () => {
           await this.api("/api/restart", { method: "POST", body: "{}" });
           this.toast("已发出重启指令，正在轮询启动状态", "success");
+          await this.loadServerStatus(true);
+          this.startPolling();
+        });
+      } catch (error) {
+        this.toast(error.message, "error");
+      }
+    },
+
+    async syncEnabledMods() {
+      if (!confirm("确定要同步已启用 MOD 并重载服务器吗？在线玩家会断开连接。")) return;
+      try {
+        await this.withBusy("modSync", async () => {
+          const data = await this.api("/api/mods/sync", { method: "POST", body: "{}" });
+          if (Array.isArray(data.diagnostics)) {
+            const next = {};
+            for (const item of data.diagnostics) next[item.id] = item;
+            this.diagnostics = next;
+          }
+          this.toast(data.message || "MOD 已同步", data.status === "ok" ? "success" : "warning");
           await this.loadServerStatus(true);
           this.startPolling();
         });
@@ -408,16 +428,44 @@ function dstAdminApp(options) {
       }[this.status.status] || "等待状态刷新";
     },
 
+    tokenStatusLabel() {
+      const token = this.status.token || {};
+      if (!token.present) return "未保存";
+      if (token.last_status === "ok") return "校验正常";
+      if (token.last_status === "error") return "校验失败";
+      if (token.last_status === "missing") return "文件缺失";
+      return "已保存";
+    },
+
+    tokenStatusMessage() {
+      const token = this.status.token || {};
+      if (token.last_message) return token.last_message;
+      if (token.present) return "Token 已保存在管理端 SQLite，等待重启后校验。";
+      return "尚未保存 Klei cluster token。";
+    },
+
+    tokenSavedAt() {
+      const token = this.status.token || {};
+      return token.saved_at ? new Date(token.saved_at).toLocaleString() : "-";
+    },
+
+    tokenBadgeClass() {
+      const token = this.status.token || {};
+      if (token.last_status === "ok") return this.statusBadgeClass("running");
+      if (token.last_status === "error" || token.last_status === "missing") return this.statusBadgeClass("error");
+      return this.statusBadgeClass("starting");
+    },
+
     navClass(name) {
       // 侧栏导航按钮的 utility class 串。基础部分始终成立，再根据 active 切换深浅主题。
       const base =
         "flex items-center gap-2.5 min-h-8 rounded-md px-2.5 py-1.5 " +
-        "text-[13px] font-semibold w-full text-left bg-transparent border-0 " +
+        "text-[13px] font-semibold w-full text-left border-0 " +
         "cursor-pointer transition-colors flex-none " +
         "max-[1080px]:w-auto max-[1080px]:whitespace-nowrap";
       return this.activeTab === name
         ? base + " bg-panel text-ink"
-        : base + " text-cream/75 hover:bg-cream/10 hover:text-cream";
+        : base + " bg-transparent text-cream/75 hover:bg-cream/10 hover:text-cream";
     },
 
     navIconClass(name) {

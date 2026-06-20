@@ -224,3 +224,109 @@ func TestSearchLocalModsMatchesChineseDisplayTitle(t *testing.T) {
 		t.Fatalf("first 无限耐久 result = %s, want 3484720277", durability[0].ID)
 	}
 }
+
+func TestSQLiteStoreImportsLegacyStateAndRestoresToken(t *testing.T) {
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, "admin")
+	dstDir := filepath.Join(dir, "data")
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	clusterDir := filepath.Join(dstDir, "cluster", "Cluster_1")
+	if err := os.MkdirAll(clusterDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stateFile := filepath.Join(stateDir, "server-mods.json")
+	settingsFile := filepath.Join(stateDir, "server-settings.json")
+	if err := os.WriteFile(stateFile, []byte(`{"mods":[{"id":"2074508776","title":"Auto Door","tags":["server_only_mod"],"enabled":true}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settingsFile, []byte(`{"server_name":"EvanDST","game_mode":"endless","max_players":8,"pause_when_empty":true,"enable_caves":true}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tokenPath := filepath.Join(clusterDir, "cluster_token.txt")
+	if err := os.WriteFile(tokenPath, []byte("pds-test-token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a := &app{
+		stateFile:    stateFile,
+		settingsFile: settingsFile,
+		dstDir:       dstDir,
+		dbPath:       filepath.Join(stateDir, "dst-admin.db"),
+	}
+	if err := a.ensureState(); err != nil {
+		t.Fatal(err)
+	}
+	defer a.db.Close()
+
+	loaded, err := a.loadState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Settings.ServerName != "EvanDST" || loaded.Settings.GameMode != "endless" {
+		t.Fatalf("settings = %+v, want imported settings", loaded.Settings)
+	}
+	if len(loaded.Mods) != 1 || loaded.Mods[0].ID != "2074508776" {
+		t.Fatalf("mods = %+v, want imported mod", loaded.Mods)
+	}
+	token, err := a.loadClusterTokenPlaintext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "pds-test-token" {
+		t.Fatalf("stored token = %q, want original token", token)
+	}
+
+	if err := os.Remove(tokenPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.restoreClusterTokenFile(); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(restored)) != "pds-test-token" {
+		t.Fatalf("restored token = %q, want original token", strings.TrimSpace(string(restored)))
+	}
+}
+
+func TestTokenLogProblemIgnoresLogsOlderThanSavedToken(t *testing.T) {
+	dir := t.TempDir()
+	dstDir := filepath.Join(dir, "data")
+	clusterDir := filepath.Join(dstDir, "cluster", "Cluster_1", "Master")
+	if err := os.MkdirAll(clusterDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	logPath := filepath.Join(clusterDir, "server_log.txt")
+	if err := os.WriteFile(logPath, []byte(`[200] Account Failed (6): "E_EXPIRED_TOKEN"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	oldTime := time.Now().Add(-1 * time.Hour)
+	if err := os.Chtimes(logPath, oldTime, oldTime); err != nil {
+		t.Fatal(err)
+	}
+	a := &app{
+		dstDir: dstDir,
+		dbPath: filepath.Join(dir, "admin", "dst-admin.db"),
+	}
+	if err := a.ensureStore(); err != nil {
+		t.Fatal(err)
+	}
+	defer a.db.Close()
+	if err := a.saveClusterTokenToStore("pds-new-token"); err != nil {
+		t.Fatal(err)
+	}
+	if a.tokenLogProblemIsCurrent(a.currentTokenStatus()) {
+		t.Fatal("old token error log was treated as current")
+	}
+
+	newTime := time.Now().Add(time.Hour)
+	if err := os.Chtimes(logPath, newTime, newTime); err != nil {
+		t.Fatal(err)
+	}
+	if !a.tokenLogProblemIsCurrent(a.currentTokenStatus()) {
+		t.Fatal("new token error log was not treated as current")
+	}
+}

@@ -23,6 +23,7 @@ docs/                     设计、来源、镜像候选、MOD 整合文档
 - `docker/entrypoint.sh`：容器启动时初始化 `/data` 目录、写入 cluster token、按需运行 SteamCMD/MOD 更新。
 - `docker/supervisord.conf`：管理 `dst-admin`、`dst-master`、`dst-caves` 三个进程。
 - `docker/README.md`：构建和运行说明。
+- 生产环境说明：`docs/production-environment.md`。
 - 设计与来源边界：`docs/image/integrated-image-design.md`、`docs/image/docker-image-source.md`、`docs/image/docker-image-candidates.md`。
 
 ## 管理端

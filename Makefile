@@ -13,6 +13,7 @@
 #   make check            # go vet + go build + bash -n entrypoint
 #   make image            # docker build dst-waystone:local
 #   make compose-up       # docker compose up -d（在 docker/ 目录）
+#   make prod-deploy      # 生产部署 dry-run（EXECUTE=1 才执行）
 #   make seed-key         # 生成一个随机 admin key 供本地 .env 使用
 
 PORT      ?= 8788
@@ -22,6 +23,10 @@ DEV_ROOT  ?= $(CURDIR)
 DEV_KEY_FILE ?= $(CURDIR)/.dev-key
 ADMIN_KEY ?= $(shell cat $(DEV_KEY_FILE) 2>/dev/null)
 IMAGE     ?= dst-waystone:local
+PROD_HOST ?= paycn
+PROD_PATH ?= /opt/dst-waystone
+PROD_REF  ?= main
+PROD_DEPLOY_MODE = $(if $(filter 1 true yes,$(EXECUTE)),--execute,--dry-run)
 
 GO ?= go
 
@@ -104,6 +109,10 @@ compose-down: ## 在 docker/ 目录 docker compose down
 .PHONY: compose-logs
 compose-logs: ## docker compose logs -f --tail=200
 	cd docker && docker compose logs -f --tail=200
+
+.PHONY: prod-deploy
+prod-deploy: ## 生产部署 SOP 入口；默认 dry-run，EXECUTE=1 才执行
+	scripts/deploy-prod.sh $(PROD_DEPLOY_MODE) --host $(PROD_HOST) --path $(PROD_PATH) --ref $(PROD_REF)
 
 .PHONY: seed-key
 seed-key: ## 重新生成 .dev-key（覆盖现有，mode 0600）

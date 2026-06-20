@@ -16,6 +16,7 @@
       source-boundaries.md
   skills/
     dst-mod-development.md
+    production-deploy.md
 ```
 
 ## 使用方式
@@ -23,7 +24,8 @@
 1. 做仓库结构、Docker、部署、管理端或 MOD 开发前，先读 `context/project-map.md`。
 2. 做阶段性交付前，对照 `context/acceptance.md` 做验收。
 3. 做饥荒 MOD 开发或 MOD 整合前，先读 `knowledge/dst-mod-development/README.md` 和 `skills/dst-mod-development.md`。
-4. 新增知识只能记录可公开的结论、来源、行为描述和重写策略，不保存第三方受限源码。
+4. 做生产构建、部署、发布、回滚或部署 SOP 调整前，先读 `skills/production-deploy.md`。
+5. 新增知识只能记录可公开的结论、来源、行为描述和重写策略，不保存第三方受限源码。
 
 ## 当前目标
 
