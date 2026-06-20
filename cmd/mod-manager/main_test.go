@@ -208,6 +208,39 @@ func TestGenerateSettingsFilesPreservesCavesShardID(t *testing.T) {
 	}
 }
 
+func TestGenerateSettingsFilesRestoresCavesShardIDFromLog(t *testing.T) {
+	dir := t.TempDir()
+	dstDir := filepath.Join(dir, "data")
+	clusterDir := filepath.Join(dstDir, "cluster", "Cluster_1")
+	cavesDir := filepath.Join(clusterDir, "Caves")
+	if err := os.MkdirAll(cavesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cavesPath := filepath.Join(cavesDir, "server.ini")
+	if err := os.WriteFile(cavesPath, []byte("[SHARD]\nis_master = false\nname = Caves\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	logPath := filepath.Join(cavesDir, "server_log.txt")
+	logText := "[00:00:22]:   ShardID: 2407032924\n"
+	if err := os.WriteFile(logPath, []byte(logText), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a := &app{
+		dstDir:       dstDir,
+		settingsFile: filepath.Join(dstDir, "admin", "server-settings.json"),
+	}
+	if _, err := a.generateSettingsFiles(serverSettings{ServerName: "EvanDST", MaxPlayers: 6, EnableCaves: true}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(cavesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "id = 2407032924") {
+		t.Fatalf("caves server.ini = %q, want shard id restored from log", string(data))
+	}
+}
+
 func TestGenerateSettingsFilesDoesNotInventCavesShardID(t *testing.T) {
 	dir := t.TempDir()
 	a := &app{

@@ -37,6 +37,31 @@ init_token() {
   fi
 }
 
+preserve_caves_shard_id() {
+  local caves_ini="${CLUSTER_DIR}/Caves/server.ini"
+  local caves_log="${CLUSTER_DIR}/Caves/server_log.txt"
+  local shard_id
+
+  if [[ ! -f "$caves_ini" || ! -f "$caves_log" ]]; then
+    return
+  fi
+  if grep -Eq '^[[:space:]]*id[[:space:]]*=' "$caves_ini"; then
+    return
+  fi
+  shard_id="$(awk '/ShardID:/ { id=$NF } END { if (id ~ /^[0-9]+$/) print id }' "$caves_log")"
+  if [[ -z "$shard_id" ]]; then
+    return
+  fi
+  log "Restoring Caves shard id ${shard_id} from server_log.txt."
+  awk -v id="$shard_id" '
+    BEGIN { inserted=0 }
+    /^\[STEAM\]/ && !inserted { print "id = " id; print ""; inserted=1 }
+    { print }
+    END { if (!inserted) print "id = " id }
+  ' "$caves_ini" > "${caves_ini}.tmp"
+  mv "${caves_ini}.tmp" "$caves_ini"
+}
+
 update_game_if_requested() {
   local steamcmd="${STEAMCMDDIR:-/home/steam/steamcmd}/steamcmd.sh"
 
@@ -94,6 +119,7 @@ update_mods_if_requested() {
 main() {
   init_layout
   init_token
+  preserve_caves_shard_id
   update_game_if_requested
   update_mods_if_requested
   exec "$@"

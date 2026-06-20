@@ -198,6 +198,7 @@ var namedFieldPattern = regexp.MustCompile(`(?i)(?:name|player|username)\s*[:=]\
 var htmlTagPattern = regexp.MustCompile(`<[^>]+>`)
 var whitespacePattern = regexp.MustCompile(`\s+`)
 var shardIDPattern = regexp.MustCompile(`(?m)^\s*id\s*=\s*(\d+)\s*$`)
+var logShardIDPattern = regexp.MustCompile(`ShardID:\s*(\d+)`)
 
 func main() {
 	port := flag.Int("port", 8788, "HTTP port")
@@ -2726,7 +2727,7 @@ server_port = 10999
 	}
 
 	cavesPath := filepath.Join(clusterDir, "Caves", "server.ini")
-	cavesID := readShardID(cavesPath)
+	cavesID := a.readCavesShardID(cavesPath)
 	cavesIDLine := ""
 	if cavesID != "" {
 		cavesIDLine = "id = " + cavesID + "\n"
@@ -2765,6 +2766,29 @@ func readShardID(path string) string {
 		return ""
 	}
 	return match[1]
+}
+
+func (a *app) readCavesShardID(cavesINIPath string) string {
+	if id := readShardID(cavesINIPath); id != "" {
+		return id
+	}
+	clusterDir, err := a.clusterDir()
+	if err != nil {
+		return ""
+	}
+	return readLastLogShardID(filepath.Join(clusterDir, "Caves", "server_log.txt"))
+}
+
+func readLastLogShardID(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	matches := logShardIDPattern.FindAllStringSubmatch(string(data), -1)
+	if len(matches) == 0 {
+		return ""
+	}
+	return matches[len(matches)-1][1]
 }
 
 func boolString(value bool) string {
